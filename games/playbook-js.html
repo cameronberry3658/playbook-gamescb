@@ -1,0 +1,966 @@
+<title>Playbook.js</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: broadcast scoreboard on top, live field strip, then a two-column sideline: the play (left) and the stat crew (right). */
+:root {
+  --bg: #EDF0EA;
+  --surface: #FFFFFF;
+  --surface-2: #F6F8F3;
+  --ink: #16201A;
+  --muted: #5A665E;
+  --line: #D2D9D0;
+  --gold: #A87A06;
+  --gold-soft: #F4E7C2;
+  --turf: #2E6A3C;
+  --turf-2: #347545;
+  --endzone: #1F4B2A;
+  --chalk: #F4F3EA;
+  --los: #5AA9FF;
+  --fd: #F2C230;
+  --board: #121915;
+  --board-ink: #F1EFE4;
+  --board-dim: #8E9A92;
+  --good: #1D7A3E;
+  --good-soft: #DCF0E2;
+  --bad: #B0281F;
+  --bad-soft: #F8DEDB;
+  --code-bg: #FBFCF9;
+  --code-ink: #1B2620;
+  --f-display: "Teko", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C110E; --surface: #141B17; --surface-2: #19221D; --ink: #E4EAE3; --muted: #94A198;
+    --line: #26312A; --gold: #E3B53E; --gold-soft: #3A3018; --turf: #23542F; --turf-2: #285D35;
+    --endzone: #173B21; --board: #060907; --board-ink: #F1EFE4; --board-dim: #7F8B83;
+    --good: #52C47F; --good-soft: #15301F; --bad: #F2766B; --bad-soft: #3A1A17;
+    --code-bg: #0F1512; --code-ink: #DCE6DE; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C110E; --surface: #141B17; --surface-2: #19221D; --ink: #E4EAE3; --muted: #94A198;
+  --line: #26312A; --gold: #E3B53E; --gold-soft: #3A3018; --turf: #23542F; --turf-2: #285D35;
+  --endzone: #173B21; --board: #060907; --board-ink: #F1EFE4; --board-dim: #7F8B83;
+  --good: #52C47F; --good-soft: #15301F; --bad: #F2766B; --bad-soft: #3A1A17;
+  --code-bg: #0F1512; --code-ink: #DCE6DE; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, textarea:focus-visible, .pb-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+
+/* header */
+.top { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-family: var(--f-display); font-weight: 600; font-size: 46px; line-height: 0.8; margin: 0; letter-spacing: 0.5px; text-wrap: balance; }
+.brand h1 span { color: var(--gold); }
+.brand p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 14px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primary:hover { opacity: 0.9; }
+.btn.gold { background: var(--fd); color: #1A1406; border-color: var(--fd); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* scoreboard */
+.board { background: var(--board); color: var(--board-ink); border-radius: 8px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); overflow: hidden; }
+.cell { padding: 10px 14px 8px; border-right: 1px solid #ffffff14; min-width: 0; }
+.cell:last-child { border-right: 0; }
+.cell .lab { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--board-dim); font-weight: 600; }
+.cell .val { font-family: var(--f-display); font-size: 34px; line-height: 1; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell .val.big { color: var(--fd); font-size: 42px; }
+.tos { display: flex; gap: 6px; margin-top: 12px; }
+.tos i { width: 22px; height: 7px; border-radius: 2px; background: var(--fd); }
+.tos i.used { background: #ffffff22; }
+@media (max-width: 760px) {
+  .board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cell:nth-child(3) { border-right: 0; }
+  .cell:nth-child(-n+3) { border-bottom: 1px solid #ffffff14; }
+  .cell .val { font-size: 28px; } .cell .val.big { font-size: 34px; }
+}
+
+/* field */
+.field-wrap { overflow: hidden; border-radius: 8px; }
+.field { position: relative; height: 92px; background: repeating-linear-gradient(90deg, var(--turf) 0 8.3333%, var(--turf-2) 8.3333% 16.6667%); }
+.ez { position: absolute; top: 0; bottom: 0; width: 8.3333%; background: var(--endzone); display: flex; align-items: center; justify-content: center; }
+.ez span { writing-mode: vertical-rl; font-family: var(--f-display); color: var(--chalk); opacity: 0.75; font-size: 17px; letter-spacing: 3px; }
+.ez.l span { transform: rotate(180deg); }
+.ez.l { left: 0; } .ez.r { right: 0; }
+.yl { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--chalk); opacity: 0.55; transform: translateX(-1px); }
+.yn { position: absolute; bottom: 4px; transform: translateX(-50%); font-family: var(--f-display); color: var(--chalk); font-size: 18px; opacity: 0.8; line-height: 1; }
+.mark { position: absolute; top: 0; bottom: 0; width: 3px; transform: translateX(-1.5px); transition: left 0.7s cubic-bezier(.2,.8,.2,1); }
+.mark.los { background: var(--los); }
+.mark.fd { background: var(--fd); }
+.ball { position: absolute; top: 34px; width: 22px; height: 13px; border-radius: 50%; background: #7B3F1D; border: 1px solid #4A230E; transform: translateX(-50%); transition: left 0.7s cubic-bezier(.2,.8,.2,1); box-shadow: 0 2px 3px #0005; }
+.ball::after { content: ""; position: absolute; left: 6px; right: 6px; top: 5px; height: 2px; background: #F4F3EA; border-radius: 1px; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+.legend b { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 6px; }
+@media (prefers-reduced-motion: reduce) { .mark, .ball { transition: none; } }
+
+/* main grid */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
+.eyebrow { font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+h2 { font-family: var(--f-display); font-weight: 500; font-size: 34px; line-height: 1; margin: 4px 0 0; text-wrap: balance; }
+h3 { font-family: var(--f-display); font-weight: 500; font-size: 24px; line-height: 1; margin: 0; }
+
+/* huddle */
+.huddle-head { display: flex; justify-content: space-between; align-items: end; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.plays { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 620px) { .plays { grid-template-columns: minmax(0, 1fr); } }
+.play { text-align: left; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px; color: var(--ink); display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, transform .15s; }
+.play:hover { border-color: var(--gold); transform: translateY(-2px); }
+.play .pn { font-family: var(--f-display); font-size: 30px; line-height: 0.9; }
+.play .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+.play .yds { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.play .desc { font-size: 13px; color: var(--muted); }
+.diff { display: inline-flex; gap: 3px; }
+.diff i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--gold); }
+.diff i.on { background: var(--gold); }
+.special { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.special .plays { margin-top: 10px; }
+.coach-tip { margin-top: 16px; font-size: 14px; color: var(--muted); max-width: 65ch; }
+
+/* challenge */
+.ch-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; flex-wrap: wrap; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--gold-soft); color: var(--gold); }
+.prompt { margin: 12px 0 10px; max-width: 70ch; }
+.prompt code, .note code, .hint code { background: var(--surface-2); border: 1px solid var(--line); padding: 0 4px; border-radius: 3px; }
+.examples { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.examples div { font-family: var(--f-mono); font-size: 13px; color: var(--muted); overflow-x: auto; white-space: nowrap; }
+.examples div b { color: var(--ink); font-weight: 600; }
+.editor { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--code-bg); }
+.ed-bar { display: flex; justify-content: space-between; gap: 10px; padding: 6px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--surface-2); flex-wrap: wrap; }
+.ed-bar .mono { color: var(--ink); }
+textarea#code { display: block; width: 100%; min-height: 240px; resize: vertical; border: 0; outline: none; background: var(--code-bg); color: var(--code-ink); font-family: var(--f-mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; tab-size: 2; white-space: pre; overflow-x: auto; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.hint { margin-top: 12px; padding: 10px 14px; border-radius: 6px; background: var(--gold-soft); font-size: 14px; }
+.hint b { color: var(--gold); }
+
+.banner { margin-top: 14px; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.banner .call { font-family: var(--f-display); font-size: 34px; line-height: 0.9; }
+.banner .sub { font-size: 14px; }
+.banner.good { background: var(--good-soft); color: var(--good); }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+.banner.score { background: var(--fd); color: #1A1406; }
+.banner .sub { color: var(--ink); }
+.banner.score .sub { color: #1A1406; }
+
+.tests { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.t { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; font-family: var(--f-mono); font-size: 12.5px; padding: 7px 10px; border-radius: 6px; background: var(--surface-2); border-left: 3px solid var(--line); }
+.t.ok { border-left-color: var(--good); }
+.t.no { border-left-color: var(--bad); }
+.t .g { font-weight: 700; }
+.t.ok .g { color: var(--good); } .t.no .g { color: var(--bad); }
+.t .body { overflow-x: auto; white-space: nowrap; }
+.t .exp { color: var(--muted); }
+.err { margin-top: 12px; padding: 10px 14px; border-radius: 6px; background: var(--bad-soft); color: var(--bad); font-family: var(--f-mono); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.console { margin-top: 10px; font-family: var(--f-mono); font-size: 12.5px; background: var(--code-bg); border: 1px dashed var(--line); border-radius: 6px; padding: 8px 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
+.film { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.note { max-width: 70ch; margin: 6px 0 10px; }
+pre.sol { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-family: var(--f-mono); font-size: 13px; line-height: 1.6; overflow-x: auto; color: var(--code-ink); }
+
+/* sidebar */
+aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.log { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.log li:first-child { border-top: 0; }
+.log .tag { font-family: var(--f-display); font-size: 19px; line-height: 1; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.log .tag.gain { color: var(--good); } .log .tag.loss, .log .tag.turnover { color: var(--bad); } .log .tag.score { color: var(--gold); } .log .tag.info { color: var(--muted); }
+.log .sit { font-size: 11.5px; color: var(--muted); letter-spacing: 0.4px; }
+.empty { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.pb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pb-count { font-family: var(--f-display); font-size: 22px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin: 8px 0 4px; border: 1px solid var(--line); }
+.bar i { display: block; height: 100%; background: var(--gold); transition: width .4s; }
+.pb-group { margin-top: 12px; }
+.pb-group .eyebrow { margin-bottom: 4px; }
+.pb-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; background: none; border: 0; border-radius: 4px; padding: 5px 6px; color: var(--ink); font-size: 14px; text-align: left; }
+.pb-item:hover { background: var(--surface-2); }
+.pb-item .ck { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line); flex: none; display: grid; place-items: center; font-size: 10px; color: var(--bg); }
+.pb-item .ck.done { background: var(--good); border-color: var(--good); }
+.pb-item .t2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.final { text-align: left; }
+.final .big { font-family: var(--f-display); font-size: 88px; line-height: 0.85; color: var(--gold); font-variant-numeric: tabular-nums; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin: 16px 0; }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.stats div { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; }
+.stats b { display: block; font-family: var(--f-display); font-size: 30px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stats span { font-size: 12px; color: var(--muted); }
+.practice-flag { background: var(--los); color: #071526; }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Playbook<span>.js</span></h1>
+      <p>Call a play. Write the JavaScript. Move the chains.</p>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="btnNew" type="button">New game</button>
+    </div>
+  </header>
+
+  <section class="board" aria-label="Scoreboard">
+    <div class="cell"><div class="lab">Points</div><div class="val big" id="sbScore">0</div></div>
+    <div class="cell"><div class="lab">Possession</div><div class="val" id="sbDrive">1 / 8</div></div>
+    <div class="cell"><div class="lab">Down</div><div class="val" id="sbDown">1st &amp; 10</div></div>
+    <div class="cell"><div class="lab">Ball on</div><div class="val" id="sbBall">OWN 25</div></div>
+    <div class="cell"><div class="lab">Completion</div><div class="val" id="sbComp">0/0</div></div>
+    <div class="cell"><div class="lab">Timeouts</div><div class="tos" id="sbTO"></div></div>
+  </section>
+
+  <div>
+    <div class="field-wrap"><div class="field" id="field" aria-label="Field position"></div></div>
+    <div class="legend"><span><b style="background:var(--los)"></b>Line of scrimmage</span><span><b style="background:var(--fd)"></b>First down marker</span><span>Driving left to right</span></div>
+  </div>
+
+  <div class="grid">
+    <main class="panel" id="stage" aria-live="polite"></main>
+    <aside>
+      <section class="panel">
+        <h3>Play-by-play</h3>
+        <ul class="log" id="log"></ul>
+      </section>
+      <section class="panel">
+        <div class="pb-head"><h3>Playbook</h3><span class="pb-count" id="pbCount">0/0</span></div>
+        <div class="bar"><i id="pbBar" style="width:0%"></i></div>
+        <div class="eyebrow" style="text-transform:none;letter-spacing:0;font-weight:500">Every play you complete gets checked off. Tap any one to practice it with no clock.</div>
+        <div id="pbList"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script>
+/*CH_START*/
+const CH = [
+  // ---------- RUN (easy) ----------
+  { id: "r1", tier: "run", title: "Total Rushing Yards", fn: "totalYards", sig: "totalYards(carries)",
+    prompt: "Your running back's carries are in an array of yard gains. Return the <b>total</b> rushing yards. Losses count as negative yards.",
+    tests: [{a:[[3,5,-2,12]], e:18},{a:[[40]], e:40},{a:[[]], e:0},{a:[[-1,-3]], e:-4},{a:[[10,10,10,10,10]], e:50}],
+    hint: "Start a variable at 0, loop over the array, and add each value to it.",
+    note: "This is the <b>accumulator</b> pattern. Think of the stat crew: start at zero, add every carry as it happens, report the total at the end. One-line version: <code>carries.reduce((sum, y) => sum + y, 0)</code>.",
+    sol: `function totalYards(carries) {
+  let total = 0;
+  for (const yards of carries) {
+    total += yards;
+  }
+  return total;
+}` },
+  { id: "r2", tier: "run", title: "Move the Chains", fn: "isFirstDown", sig: "isFirstDown(gained, toGo)",
+    prompt: "Return <code>true</code> if the yards <code>gained</code> on the play are enough to reach the first down marker (<code>toGo</code> yards away), otherwise <code>false</code>.",
+    tests: [{a:[10,10], e:true},{a:[9,10], e:false},{a:[15,3], e:true},{a:[0,1], e:false},{a:[-2,5], e:false}],
+    hint: "You only need one comparison. Should it be <code>&gt;</code> or <code>&gt;=</code>?",
+    note: "Comparison operators already return a boolean, so you can return the comparison directly instead of writing <code>if (...) return true; else return false;</code>. The chains don't care if you got exactly 10 or 30, only whether you reached the stick.",
+    sol: `function isFirstDown(gained, toGo) {
+  return gained >= toGo;
+}` },
+  { id: "r3", tier: "run", title: "Scoring Plays", fn: "pointsFor", sig: "pointsFor(play)",
+    prompt: "Given a scoring code, return its point value: <code>\"TD\"</code> = 6, <code>\"FG\"</code> = 3, <code>\"SAFETY\"</code> = 2, <code>\"2PT\"</code> = 2, <code>\"PAT\"</code> = 1. Anything else is worth 0.",
+    tests: [{a:["TD"], e:6},{a:["FG"], e:3},{a:["PAT"], e:1},{a:["SAFETY"], e:2},{a:["2PT"], e:2},{a:["PUNT"], e:0}],
+    hint: "An object works as a lookup table: <code>const values = { TD: 6, FG: 3, ... }</code>. A key that starts with a number needs quotes: <code>\"2PT\": 2</code>.",
+    note: "Mapping inputs to outputs with an object (or a <code>switch</code>) is a wristband play sheet: call the code, get the play. <code>?? 0</code> gives a default when the code isn't on the sheet.",
+    sol: `function pointsFor(play) {
+  const values = { TD: 6, FG: 3, SAFETY: 2, "2PT": 2, PAT: 1 };
+  return values[play] ?? 0;
+}` },
+  { id: "r4", tier: "run", title: "Longest Run", fn: "longestRun", sig: "longestRun(carries)",
+    prompt: "Return the longest single carry from the array. If the array is empty, return 0.",
+    tests: [{a:[[4,22,7]], e:22},{a:[[-3,-1]], e:-1},{a:[[]], e:0},{a:[[5]], e:5},{a:[[9,9,2]], e:9}],
+    hint: "Track the best so far. Start it at the <i>first carry</i>, not 0, because every carry might be a loss.",
+    note: "Tracking a max is a scout keeping the fastest 40 time: compare each new guy to the record and only replace it when he's faster. <code>Math.max(...carries)</code> also works, but handle the empty case first (it returns <code>-Infinity</code>).",
+    sol: `function longestRun(carries) {
+  if (carries.length === 0) return 0;
+  let best = carries[0];
+  for (const yards of carries) {
+    if (yards > best) best = yards;
+  }
+  return best;
+}` },
+  { id: "r5", tier: "run", title: "Highlight Reel", fn: "countTouchdowns", sig: "countTouchdowns(plays)",
+    prompt: "<code>plays</code> is an array of results like <code>\"RUN\"</code>, <code>\"PASS\"</code>, <code>\"TD\"</code>, <code>\"INT\"</code>. Return how many were <code>\"TD\"</code>.",
+    tests: [{a:[["RUN","TD","PASS","TD"]], e:2},{a:[["RUN","PASS"]], e:0},{a:[[]], e:0},{a:[["TD","TD","TD"]], e:3}],
+    hint: "Loop and add 1 to a counter whenever the play equals <code>\"TD\"</code>. Or use <code>.filter()</code> and check the length.",
+    note: "Counting matches is <b>filter, then length</b>: keep only the plays you care about, count what's left. Same as cutting only the scoring plays into the highlight reel.",
+    sol: `function countTouchdowns(plays) {
+  return plays.filter(p => p === "TD").length;
+}` },
+  { id: "r6", tier: "run", title: "Jersey Press", fn: "nameplate", sig: "nameplate(last, number)",
+    prompt: "Build the back-of-jersey label: the last name in ALL CAPS, a space, a <code>#</code>, then the number. <code>nameplate(\"Walker\", 92)</code> returns <code>\"WALKER #92\"</code>.",
+    tests: [{a:["Walker",92], e:"WALKER #92"},{a:["smith",7], e:"SMITH #7"},{a:["O'Neal",55], e:"O'NEAL #55"}],
+    hint: "<code>.toUpperCase()</code> handles the caps. Then glue the pieces with <code>+</code> or a template literal.",
+    note: "String building. Template literals (backticks with <code>${...}</code>) are the cleaner way to drop variables into text: fixed layout, plug in the name and number. Numbers convert to text automatically when joined to a string.",
+    sol: `function nameplate(last, number) {
+  return last.toUpperCase() + " #" + number;
+}` },
+  { id: "r7", tier: "run", title: "Ball On", fn: "ballOn", sig: "ballOn(yardLine)",
+    prompt: "Yard lines count from your own goal line (0) to the opponent's (100). Return the broadcast label: under 50 is like <code>\"OWN 25\"</code>, exactly 50 is <code>\"50\"</code>, over 50 is <code>\"OPP\"</code> plus the distance to the goal line (70 becomes <code>\"OPP 30\"</code>).",
+    tests: [{a:[25], e:"OWN 25"},{a:[70], e:"OPP 30"},{a:[50], e:"50"},{a:[99], e:"OPP 1"},{a:[1], e:"OWN 1"}],
+    hint: "Three branches: <code>if</code> / <code>else if</code> / <code>else</code>. On the opponent's side the number is <code>100 - yardLine</code>.",
+    note: "If/else is reading the defense: check one look, if not that, check the next, and always have a default. Handle the special case (exactly 50) on purpose instead of hoping it falls into a branch.",
+    sol: `function ballOn(yardLine) {
+  if (yardLine < 50) return "OWN " + yardLine;
+  if (yardLine === 50) return "50";
+  return "OPP " + (100 - yardLine);
+}` },
+  { id: "r8", tier: "run", title: "Yards Per Carry", fn: "yardsPerCarry", sig: "yardsPerCarry(yards, carries)",
+    prompt: "Return average yards per carry, rounded to 1 decimal place (as a number). If <code>carries</code> is 0, return 0 instead of dividing by zero.",
+    tests: [{a:[100,23], e:4.3},{a:[0,0], e:0},{a:[50,10], e:5},{a:[7,2], e:3.5},{a:[-6,4], e:-1.5}],
+    hint: "Guard first: <code>if (carries === 0) return 0;</code>. To round to 1 decimal: <code>Math.round(x * 10) / 10</code>.",
+    note: "That early return is a <b>guard clause</b>, a pre-snap check: deal with the bad look first so the main play runs clean. Dividing by zero in JS doesn't crash, it quietly gives <code>Infinity</code> or <code>NaN</code>, which is sneakier.",
+    sol: `function yardsPerCarry(yards, carries) {
+  if (carries === 0) return 0;
+  return Math.round((yards / carries) * 10) / 10;
+}` },
+  { id: "r9", tier: "run", title: "Cadence", fn: "snapCount", sig: "snapCount(n)",
+    prompt: "Return the QB's cadence: <code>\"HUT\"</code> repeated <code>n</code> times, separated by single spaces. <code>snapCount(3)</code> is <code>\"HUT HUT HUT\"</code>. If <code>n</code> is 0, return an empty string.",
+    tests: [{a:[3], e:"HUT HUT HUT"},{a:[0], e:""},{a:[1], e:"HUT"},{a:[5], e:"HUT HUT HUT HUT HUT"}],
+    hint: "Build an array with n copies and join it: <code>Array(n).fill(\"HUT\")</code> is a handy start.",
+    note: "Repeating work n times is a counted loop. Joining with a separator avoids the classic off-by-one where you end up with a trailing space at the end.",
+    sol: `function snapCount(n) {
+  return Array(n).fill("HUT").join(" ");
+}` },
+
+  // ---------- PASS (medium) ----------
+  { id: "p1", tier: "pass", title: "Drive Points", fn: "scoreDrive", sig: "scoreDrive(events)",
+    prompt: "Return the total points from an array of scoring codes: <code>TD</code> 6, <code>FG</code> 3, <code>PAT</code> 1, <code>2PT</code> 2, <code>SAFETY</code> 2.",
+    tests: [{a:[["TD","PAT","FG"]], e:10},{a:[[]], e:0},{a:[["SAFETY","TD","2PT"]], e:10},{a:[["FG","FG","FG"]], e:9}],
+    hint: "Make a lookup object for the values, then add them up with a loop or <code>.reduce()</code>.",
+    note: "Two Run-package concepts stacked together: a lookup table and an accumulator. Most real code is small patterns combined, the same way a good offense is a few base concepts with tags.",
+    sol: `function scoreDrive(events) {
+  const values = { TD: 6, FG: 3, PAT: 1, "2PT": 2, SAFETY: 2 };
+  return events.reduce((sum, e) => sum + (values[e] ?? 0), 0);
+}` },
+  { id: "p2", tier: "pass", title: "Starting Lineup", fn: "starters", sig: "starters(roster)",
+    prompt: "<code>roster</code> is an array of objects like <code>{ name: \"Cole\", starter: true }</code>. Return an array of just the <b>names</b> of the starters, in order.",
+    tests: [{a:[[{name:"Cole",starter:true},{name:"Diaz",starter:false},{name:"Park",starter:true}]], e:["Cole","Park"]},{a:[[]], e:[]},{a:[[{name:"Ames",starter:false}]], e:[]}],
+    hint: "<code>.filter()</code> to keep the starters, then <code>.map()</code> to pull out just the name.",
+    note: "Filter then map is the bread and butter of data work: filter rows, then select a column. SQL does the exact same thing with <code>WHERE</code> and <code>SELECT</code>.",
+    sol: `function starters(roster) {
+  return roster.filter(p => p.starter).map(p => p.name);
+}` },
+  { id: "p3", tier: "pass", title: "Rushing Leader", fn: "rushingLeader", sig: "rushingLeader(players)",
+    prompt: "<code>players</code> is an array of <code>{ name, yards }</code>. Return the <b>name</b> of the player with the most yards. On a tie, the first one listed wins. If the array is empty, return <code>null</code>.",
+    tests: [{a:[[{name:"Ruiz",yards:88},{name:"Banks",yards:112},{name:"Hall",yards:40}]], e:"Banks"},{a:[[]], e:null},{a:[[{name:"Ames",yards:50},{name:"Bell",yards:50}]], e:"Ames"},{a:[[{name:"Solo",yards:-3}]], e:"Solo"}],
+    hint: "Keep the best player <i>object</i> seen so far. Replace it only when someone has strictly more yards.",
+    note: "Same max-tracking as Longest Run, but you keep the whole object so you can return a different field from it. Using <code>&gt;</code> instead of <code>&gt;=</code> is what makes the first player win ties.",
+    sol: `function rushingLeader(players) {
+  if (players.length === 0) return null;
+  let best = players[0];
+  for (const p of players) {
+    if (p.yards > best.yards) best = p;
+  }
+  return best.name;
+}` },
+  { id: "p4", tier: "pass", title: "Down & Distance", fn: "downAndDistance", sig: "downAndDistance(down, toGo, yardLine)",
+    prompt: "Return the TV graphic: <code>\"1st &amp; 10\"</code>, <code>\"3rd &amp; 7\"</code>, etc. If the marker would be at or past the goal line (<code>yardLine + toGo &gt;= 100</code>), show <code>\"Goal\"</code> instead of the number.",
+    tests: [{a:[1,10,25], e:"1st & 10"},{a:[1,10,95], e:"1st & Goal"},{a:[3,7,40], e:"3rd & 7"},{a:[2,4,96], e:"2nd & Goal"},{a:[4,1,50], e:"4th & 1"}],
+    hint: "Store the ordinals in an array: <code>[\"\", \"1st\", \"2nd\", \"3rd\", \"4th\"]</code> so <code>ordinals[down]</code> just works.",
+    note: "An array used as an index lookup replaces a whole if/else ladder. Padding slot 0 with an empty string lets down 1 map to index 1 so you don't fight off-by-one errors.",
+    sol: `function downAndDistance(down, toGo, yardLine) {
+  const ordinals = ["", "1st", "2nd", "3rd", "4th"];
+  const distance = yardLine + toGo >= 100 ? "Goal" : toGo;
+  return ordinals[down] + " & " + distance;
+}` },
+  { id: "p5", tier: "pass", title: "Game Clock", fn: "formatClock", sig: "formatClock(seconds)",
+    prompt: "Convert seconds remaining into an <code>M:SS</code> game clock. <code>formatClock(125)</code> is <code>\"2:05\"</code>. Seconds always show two digits.",
+    tests: [{a:[125], e:"2:05"},{a:[9], e:"0:09"},{a:[900], e:"15:00"},{a:[0], e:"0:00"},{a:[61], e:"1:01"}],
+    hint: "Minutes: <code>Math.floor(seconds / 60)</code>. Seconds: <code>seconds % 60</code>. <code>String(x).padStart(2, \"0\")</code> adds the leading zero.",
+    note: "<code>%</code> (modulo) gives the remainder after division. It's the go-to for anything that wraps around: clocks, rotating through a depth chart, every-other-play logic.",
+    sol: `function formatClock(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m + ":" + String(s).padStart(2, "0");
+}` },
+  { id: "p6", tier: "pass", title: "Completion Rate", fn: "completionPct", sig: "completionPct(comp, att)",
+    prompt: "Return the completion percentage as a string with one decimal and a <code>%</code> sign. <code>completionPct(13, 20)</code> is <code>\"65.0%\"</code>. With 0 attempts, return <code>\"0.0%\"</code>.",
+    tests: [{a:[13,20], e:"65.0%"},{a:[2,3], e:"66.7%"},{a:[0,0], e:"0.0%"},{a:[20,20], e:"100.0%"}],
+    hint: "<code>(comp / att * 100).toFixed(1)</code> gives a string with one decimal. Guard the zero-attempt case first.",
+    note: "<code>.toFixed()</code> returns a <i>string</i>, not a number. Great for display, but keep the number around if you need more math. Format last, like painting the yard numbers after the field is laid.",
+    sol: `function completionPct(comp, att) {
+  if (att === 0) return "0.0%";
+  return (comp / att * 100).toFixed(1) + "%";
+}` },
+  { id: "p7", tier: "pass", title: "Depth Chart", fn: "groupByPosition", sig: "groupByPosition(players)",
+    prompt: "<code>players</code> is an array of <code>{ name, pos }</code>. Return an object where each key is a position and each value is the array of names at that position, in order.",
+    tests: [{a:[[{name:"Hart",pos:"QB"},{name:"Lee",pos:"WR"},{name:"Ford",pos:"WR"}]], e:{QB:["Hart"],WR:["Lee","Ford"]}},{a:[[]], e:{}},{a:[[{name:"Moss",pos:"TE"}]], e:{TE:["Moss"]}}],
+    hint: "Start with <code>{}</code>. For each player, if <code>groups[pos]</code> doesn't exist yet, set it to <code>[]</code>. Then push the name.",
+    note: "Grouping into an object is literally a depth chart: one key per position, a list of names under each. It's the JavaScript version of SQL's <code>GROUP BY</code>.",
+    sol: `function groupByPosition(players) {
+  const groups = {};
+  for (const p of players) {
+    if (!groups[p.pos]) groups[p.pos] = [];
+    groups[p.pos].push(p.name);
+  }
+  return groups;
+}` },
+  { id: "p8", tier: "pass", title: "Clean Roster", fn: "uniqueRoster", sig: "uniqueRoster(names)",
+    prompt: "The roster import has duplicates. Return the names with duplicates removed, keeping the order each name <b>first</b> appeared.",
+    tests: [{a:[["Cole","Park","Cole","Diaz","Park"]], e:["Cole","Park","Diaz"]},{a:[[]], e:[]},{a:[["Ames","Ames","Ames"]], e:["Ames"]}],
+    hint: "A <code>Set</code> only keeps unique values and remembers insertion order. <code>[...new Set(names)]</code> turns it back into an array.",
+    note: "A Set is the security desk at the facility: each name gets in once. Checking membership in a Set is much faster than searching an array, which starts to matter as data grows.",
+    sol: `function uniqueRoster(names) {
+  return [...new Set(names)];
+}` },
+  { id: "p9", tier: "pass", title: "Parse the Feed", fn: "parsePlay", sig: "parsePlay(call)",
+    prompt: "The play-by-play feed sends text like <code>\"PASS 12 SMITH\"</code>. Return <code>{ type: \"PASS\", yards: 12, player: \"SMITH\" }</code>. Yards can be negative and must be a <b>number</b>, not a string.",
+    tests: [{a:["PASS 12 SMITH"], e:{type:"PASS",yards:12,player:"SMITH"}},{a:["RUN -3 JONES"], e:{type:"RUN",yards:-3,player:"JONES"}},{a:["RUN 0 KIM"], e:{type:"RUN",yards:0,player:"KIM"}}],
+    hint: "<code>call.split(\" \")</code> gives you 3 pieces. <code>Number(\"12\")</code> turns text into a number.",
+    note: "Parsing text into structured data is how logs, feeds, and CSVs become usable. Destructuring (<code>const [type, yards, player] = call.split(\" \")</code>) unpacks all three in one line.",
+    sol: `function parsePlay(call) {
+  const [type, yards, player] = call.split(" ");
+  return { type, yards: Number(yards), player };
+}` },
+
+  // ---------- DEEP (hard) ----------
+  { id: "d1", tier: "deep", title: "Drive Chart", fn: "driveChart", sig: "driveChart(start, plays)",
+    prompt: "Starting at yard line <code>start</code>, return an array of where the ball is after each play in <code>plays</code>. Keep the ball between 0 and 100. If it reaches 100 (touchdown), stop and ignore any plays after that.",
+    tests: [{a:[25,[5,10,-3]], e:[30,40,37]},{a:[90,[5,8,4]], e:[95,100]},{a:[3,[-5]], e:[0]},{a:[50,[]], e:[]}],
+    hint: "Keep a position variable. After each play, clamp it with <code>Math.min(100, Math.max(0, pos))</code>, push it, and <code>break</code> if it hits 100.",
+    note: "Clamping keeps a value inside bounds, like the sideline: you can't gain yards past the end zone. <code>break</code> exits a loop early once the drive is over.",
+    sol: `function driveChart(start, plays) {
+  const chart = [];
+  let pos = start;
+  for (const gain of plays) {
+    pos = Math.min(100, Math.max(0, pos + gain));
+    chart.push(pos);
+    if (pos === 100) break;
+  }
+  return chart;
+}` },
+  { id: "d2", tier: "deep", title: "Series Result", fn: "seriesResult", sig: "seriesResult(gains)",
+    prompt: "A series starts 1st &amp; 10. <code>gains</code> holds the yards on each play. Return <code>\"FIRST DOWN\"</code> if they reach 10 total yards within 4 plays. If 4 plays are used without getting there, return <code>\"TURNOVER ON DOWNS\"</code> (ignore any extra plays). If there are fewer than 4 plays and no first down yet, return <code>\"IN PROGRESS\"</code>.",
+    tests: [{a:[[4,3,5]], e:"FIRST DOWN"},{a:[[2,2,2,2]], e:"TURNOVER ON DOWNS"},{a:[[12]], e:"FIRST DOWN"},{a:[[3,-2]], e:"IN PROGRESS"},{a:[[1,1,1,1,20]], e:"TURNOVER ON DOWNS"},{a:[[]], e:"IN PROGRESS"}],
+    hint: "Loop over at most 4 plays. Add each gain to a running total and return <code>\"FIRST DOWN\"</code> the moment it hits 10. After the loop, use how many plays there were to pick between the other two.",
+    note: "This is a small <b>state machine</b>: the series has state (yards gained, current down) and each play moves it until it hits an end state. Returning the moment you know the answer keeps the logic clean.",
+    sol: `function seriesResult(gains) {
+  let total = 0;
+  const downs = Math.min(gains.length, 4);
+  for (let i = 0; i < downs; i++) {
+    total += gains[i];
+    if (total >= 10) return "FIRST DOWN";
+  }
+  return gains.length >= 4 ? "TURNOVER ON DOWNS" : "IN PROGRESS";
+}` },
+  { id: "d3", tier: "deep", title: "Top Tacklers", fn: "topTacklers", sig: "topTacklers(stats, n)",
+    prompt: "<code>stats</code> is an array of <code>{ name, tackles }</code>. Return the names of the top <code>n</code> tacklers, most tackles first. Break ties alphabetically by name.",
+    tests: [{a:[[{name:"Owens",tackles:9},{name:"Bell",tackles:12},{name:"Adams",tackles:9},{name:"Cruz",tackles:4}],2], e:["Bell","Adams"]},{a:[[{name:"Owens",tackles:9},{name:"Bell",tackles:12},{name:"Adams",tackles:9},{name:"Cruz",tackles:4}],3], e:["Bell","Adams","Owens"]},{a:[[],3], e:[]},{a:[[{name:"Zane",tackles:1}],5], e:["Zane"]}],
+    hint: "<code>.sort((a, b) => ...)</code> with a comparator: <code>b.tackles - a.tackles</code> for descending, and if that's 0, <code>a.name.localeCompare(b.name)</code>. Then <code>.slice(0, n)</code> and map to names.",
+    note: "Sort comparators are tiebreaker rules, just like conference standings. <code>.sort()</code> changes the original array, so copying first with <code>[...stats]</code> is a good habit.",
+    sol: `function topTacklers(stats, n) {
+  return [...stats]
+    .sort((a, b) => b.tackles - a.tackles || a.name.localeCompare(b.name))
+    .slice(0, n)
+    .map(p => p.name);
+}` },
+  { id: "d4", tier: "deep", title: "Hot Streak", fn: "longestGainStreak", sig: "longestGainStreak(plays)",
+    prompt: "Return the length of the longest streak of <b>consecutive</b> plays that gained yards (more than 0). Zero and negative plays break the streak.",
+    tests: [{a:[[3,5,-1,2,2,2,0,4]], e:3},{a:[[]], e:0},{a:[[-1,0,-4]], e:0},{a:[[1,1,1,1]], e:4}],
+    hint: "Two counters: <code>current</code> and <code>best</code>. Positive play: <code>current++</code>. Otherwise reset <code>current</code> to 0. Update <code>best</code> every step.",
+    note: "Running counters with a reset is a classic interview pattern. Same logic counts consecutive completions, or in security, consecutive failed logins before an account locks.",
+    sol: `function longestGainStreak(plays) {
+  let current = 0, best = 0;
+  for (const y of plays) {
+    current = y > 0 ? current + 1 : 0;
+    best = Math.max(best, current);
+  }
+  return best;
+}` },
+  { id: "d5", tier: "deep", title: "Steal the Signs", fn: "decodeSignal", sig: "decodeSignal(msg, shift)",
+    prompt: "The other sideline encodes calls by shifting every letter forward <code>shift</code> places in the alphabet (Z wraps to A). Decode it by shifting back. Messages are uppercase. Leave spaces and digits alone. <code>decodeSignal(\"FRYHU 2\", 3)</code> is <code>\"COVER 2\"</code>.",
+    tests: [{a:["FRYHU 2",3], e:"COVER 2"},{a:["ABC",1], e:"ZAB"},{a:["FPMXD",4], e:"BLITZ"},{a:["D",29], e:"A"},{a:["HELLO",0], e:"HELLO"}],
+    hint: "Letter to 0-25: <code>ch.charCodeAt(0) - 65</code>. Subtract the shift, wrap with <code>((x % 26) + 26) % 26</code>, convert back with <code>String.fromCharCode(x + 65)</code>.",
+    note: "That's the <b>Caesar cipher</b>, one of the oldest encryption schemes. It's easy to break because there are only 26 possible keys, which is exactly why real crypto uses keys too big to brute force. The <code>+ 26) % 26</code> trick fixes JavaScript's negative remainders.",
+    sol: `function decodeSignal(msg, shift) {
+  let out = "";
+  for (const ch of msg) {
+    if (ch >= "A" && ch <= "Z") {
+      const x = ch.charCodeAt(0) - 65 - shift;
+      out += String.fromCharCode(((x % 26) + 26) % 26 + 65);
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}` },
+  { id: "d6", tier: "deep", title: "Conference Standings", fn: "standings", sig: "standings(games)",
+    prompt: "<code>games</code> is an array of <code>{ home, away, homePts, awayPts }</code>. Return every team name sorted by wins (most first), breaking ties alphabetically. Ties count as no win for either team. Teams with 0 wins still appear.",
+    tests: [{a:[[{home:"Braves",away:"Eagles",homePts:21,awayPts:14},{home:"Eagles",away:"Pirates",homePts:10,awayPts:17},{home:"Pirates",away:"Braves",homePts:24,awayPts:27}]], e:["Braves","Pirates","Eagles"]},{a:[[{home:"Hawks",away:"Bears",homePts:7,awayPts:7}]], e:["Bears","Hawks"]},{a:[[]], e:[]}],
+    hint: "First build a <code>wins</code> object with every team (home and away) set to 0. Then add 1 for each winner. Then sort <code>Object.keys(wins)</code> with a comparator.",
+    note: "Aggregate, then rank. That's the shape of almost every report you'll ever build. Initializing every team to 0 first is what keeps winless teams from vanishing off the table.",
+    sol: `function standings(games) {
+  const wins = {};
+  for (const g of games) {
+    wins[g.home] = wins[g.home] || 0;
+    wins[g.away] = wins[g.away] || 0;
+    if (g.homePts > g.awayPts) wins[g.home]++;
+    if (g.awayPts > g.homePts) wins[g.away]++;
+  }
+  return Object.keys(wins).sort((a, b) => wins[b] - wins[a] || a.localeCompare(b));
+}` },
+  { id: "d7", tier: "deep", title: "Badge Reader", fn: "canAccess", sig: "canAccess(roles, door, policy)",
+    prompt: "Program the facility's badge reader. <code>policy</code> maps each door to the roles allowed in, like <code>{ \"film-room\": [\"coach\", \"qb\"], \"lobby\": [\"*\"] }</code>. <code>\"*\"</code> means anyone. Return <code>true</code> if any of the person's <code>roles</code> is allowed. Doors missing from the policy stay locked.",
+    tests: [{a:[["player","qb"],"film-room",{"film-room":["coach","qb"],"lobby":["*"],"weight-room":["player","coach","trainer"]}], e:true},{a:[["player"],"film-room",{"film-room":["coach","qb"],"lobby":["*"],"weight-room":["player","coach","trainer"]}], e:false},{a:[[],"lobby",{"film-room":["coach","qb"],"lobby":["*"],"weight-room":["player","coach","trainer"]}], e:true},{a:[["coach"],"server-room",{"film-room":["coach","qb"],"lobby":["*"],"weight-room":["player","coach","trainer"]}], e:false},{a:[["trainer"],"weight-room",{"film-room":["coach","qb"],"lobby":["*"],"weight-room":["player","coach","trainer"]}], e:true}],
+    hint: "Look up <code>policy[door]</code>. Missing? Return false. Includes <code>\"*\"</code>? Return true. Otherwise <code>roles.some(r => allowed.includes(r))</code>.",
+    note: "This is <b>role-based access control</b> (RBAC), a core idea in identity and access management. <b>Deny by default</b> is the security principle that matters most here: if nobody wrote a rule for a door, it stays locked.",
+    sol: `function canAccess(roles, door, policy) {
+  const allowed = policy[door];
+  if (!allowed) return false;
+  if (allowed.includes("*")) return true;
+  return roles.some(r => allowed.includes(r));
+}` },
+  { id: "d8", tier: "deep", title: "Flatten the Playbook", fn: "flattenPlaybook", sig: "flattenPlaybook(book)",
+    prompt: "The playbook is nested: arrays inside arrays, any depth. Return one flat array of every play name, in order.",
+    tests: [{a:[[["Dive",["Sweep",["Counter"]]],"Draw"]], e:["Dive","Sweep","Counter","Draw"]},{a:[[]], e:[]},{a:[["Slant"]], e:["Slant"]},{a:[[[[["Fade"]]]]], e:["Fade"]}],
+    hint: "Recursion: for each item, if <code>Array.isArray(item)</code>, call your function on it and add those results. Otherwise push the item. (<code>.flat(Infinity)</code> exists, but try it the long way first.)",
+    note: "<b>Recursion</b> is a function calling itself on a smaller piece of the problem. Picture a call that points to a package that points to a concept: keep opening folders until you hit an actual play, then work back out.",
+    sol: `function flattenPlaybook(book) {
+  const out = [];
+  for (const item of book) {
+    if (Array.isArray(item)) out.push(...flattenPlaybook(item));
+    else out.push(item);
+  }
+  return out;
+}` }
+];
+/*CH_END*/
+
+const TIERS = {
+  run:  { label: "Run",        diff: 1, name: "Easy",   gain: [3, 7],   desc: "Steady yards, low risk. A miss gets stuffed at the line." },
+  pass: { label: "Short Pass", diff: 2, name: "Medium", gain: [8, 15],  desc: "Moves the chains. A miss falls incomplete." },
+  deep: { label: "Deep Shot",  diff: 3, name: "Hard",   gain: [22, 38], desc: "Chunk play. A miss can get picked off." }
+};
+const DRIVES_PER_GAME = 8;
+const BYID = Object.fromEntries(CH.map(c => [c.id, c]));
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const fmt = v => v === undefined ? "undefined" : JSON.stringify(v);
+
+/* ---------- persistence (per-viewer convenience only) ---------- */
+const STORE_KEY = "playbookjs.v1";
+let P = { solved: {}, best: 0, drafts: {} };
+try { const raw = localStorage.getItem(STORE_KEY); if (raw) P = Object.assign(P, JSON.parse(raw)); } catch (e) {}
+function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(P)); } catch (e) {} }
+
+/* ---------- game state ---------- */
+let S;
+function freshGame() {
+  return { yl: 25, down: 1, toGo: 10, score: 0, drive: 1, snaps: 0, hits: 0, tds: 0, fgs: 0, timeouts: 3,
+    log: [], phase: "huddle", cur: null, tier: null, kind: null, snapped: false, hintShown: false,
+    seen: [], over: false, returnTo: null };
+}
+
+function ddText(down, toGo, yl) {
+  const o = ["", "1st", "2nd", "3rd", "4th"][down];
+  return o + " & " + (yl + toGo >= 100 ? "Goal" : toGo);
+}
+function ballText(yl) { return yl < 50 ? "OWN " + yl : yl === 50 ? "50" : "OPP " + (100 - yl); }
+
+/* ---------- field ---------- */
+function buildField() {
+  const f = $("field");
+  let h = '<div class="ez l"><span>HOME</span></div><div class="ez r"><span>END ZONE</span></div>';
+  for (let y = 0; y <= 100; y += 10) {
+    const left = (10 + y) / 120 * 100;
+    h += '<div class="yl" style="left:' + left + '%"></div>';
+    if (y > 0 && y < 100) h += '<div class="yn" style="left:' + left + '%">' + (y <= 50 ? y : 100 - y) + '</div>';
+  }
+  h += '<div class="mark los" id="mLos"></div><div class="mark fd" id="mFd"></div><div class="ball" id="mBall"></div>';
+  f.innerHTML = h;
+}
+const pct = yl => (10 + yl) / 120 * 100 + "%";
+function renderField() {
+  const fdY = Math.min(100, S.yl + S.toGo);
+  $("mLos").style.left = pct(S.yl);
+  $("mBall").style.left = pct(S.yl);
+  $("mFd").style.left = pct(fdY);
+  $("mFd").hidden = fdY >= 100;
+}
+
+/* ---------- scoreboard ---------- */
+function renderBoard() {
+  $("sbScore").textContent = S.score;
+  $("sbDrive").textContent = Math.min(S.drive, DRIVES_PER_GAME) + " / " + DRIVES_PER_GAME;
+  $("sbDown").textContent = S.over ? "Final" : ddText(S.down, S.toGo, S.yl);
+  $("sbBall").textContent = S.over ? "--" : ballText(S.yl);
+  $("sbComp").textContent = S.hits + "/" + S.snaps;
+  $("sbTO").innerHTML = [0, 1, 2].map(i => '<i class="' + (i < S.timeouts ? "" : "used") + '"></i>').join("");
+  renderField();
+}
+
+/* ---------- log ---------- */
+function addLog(tag, cls, text) {
+  S.log.unshift({ tag, cls, text, sit: ddText(S.down, S.toGo, S.yl) + " · " + ballText(S.yl) + " · Poss " + S.drive });
+  S.log = S.log.slice(0, 60);
+}
+function renderLog() {
+  const el = $("log");
+  if (!S.log.length) { el.innerHTML = '<p class="empty">No snaps yet. Pick a play in the huddle to get the drive started.</p>'; return; }
+  el.innerHTML = S.log.map(l => '<li><span class="tag ' + l.cls + '">' + esc(l.tag) + '</span><div>' + esc(l.text) + '<div class="sit">' + esc(l.sit) + '</div></div></li>').join("");
+}
+
+/* ---------- playbook list ---------- */
+function renderPlaybook() {
+  const total = CH.length, done = CH.filter(c => P.solved[c.id]).length;
+  $("pbCount").textContent = done + "/" + total;
+  $("pbBar").style.width = (done / total * 100) + "%";
+  $("pbList").innerHTML = Object.keys(TIERS).map(t =>
+    '<div class="pb-group"><div class="eyebrow">' + TIERS[t].label + ' · ' + TIERS[t].name + '</div>' +
+    CH.filter(c => c.tier === t).map(c =>
+      '<button class="pb-item" type="button" data-practice="' + c.id + '"><span class="t2">' + esc(c.title) + '</span><span class="ck ' + (P.solved[c.id] ? "done" : "") + '">' + (P.solved[c.id] ? "✓" : "") + '</span></button>'
+    ).join("") + '</div>').join("");
+}
+
+/* ---------- stage: huddle ---------- */
+function diffDots(n) { return '<span class="diff" aria-label="difficulty ' + n + ' of 3">' + [1,2,3].map(i => '<i class="' + (i <= n ? "on" : "") + '"></i>').join("") + '</span>'; }
+function renderHuddle() {
+  const fgDist = 100 - S.yl + 17;
+  const canFG = S.down === 4 && fgDist <= 55;
+  const tips = [
+    "Run plays are quick reps on fundamentals. Deep shots teach the patterns interviewers love.",
+    "Use Run examples to test before you snap. It's free, like a walkthrough before the real rep.",
+    "Burn a timeout to get a hint. You get 3 per possession.",
+    "Miss a play? Open the film room afterward. Then rewrite it yourself without looking.",
+    "console.log() works in your code. Output shows under the test results."
+  ];
+  let h = '<div class="huddle-head"><div><div class="eyebrow">Huddle · Possession ' + S.drive + ' of ' + DRIVES_PER_GAME + '</div><h2>' + ddText(S.down, S.toGo, S.yl) + ' at ' + ballText(S.yl) + '</h2></div></div>';
+  h += '<div class="plays">' + Object.keys(TIERS).map(t => {
+    const T = TIERS[t];
+    return '<button class="play" type="button" data-call="' + t + '"><span class="pn">' + T.label + '</span><span class="meta"><span>' + diffDots(T.diff) + ' ' + T.name + '</span><span class="yds">+' + T.gain[0] + ' to ' + T.gain[1] + ' yds</span></span><span class="desc">' + T.desc + '</span></button>';
+  }).join("") + '</div>';
+  if (S.down === 4) {
+    h += '<div class="special"><div class="eyebrow">4th down: go for it above, or bring out special teams</div><div class="plays">';
+    if (canFG) h += '<button class="play" type="button" data-call="fg"><span class="pn">' + fgDist + '-yd Field Goal</span><span class="meta"><span>' + diffDots(1) + ' Easy</span><span class="yds">3 pts</span></span><span class="desc">An easy challenge. Hit it for 3, miss and the possession ends.</span></button>';
+    h += '<button class="play" type="button" data-call="punt"><span class="pn">Punt</span><span class="meta"><span>No challenge</span><span class="yds">0 pts</span></span><span class="desc">Give it up and start the next possession.</span></button>';
+    h += '</div></div>';
+  }
+  h += '<p class="coach-tip"><b>Coach:</b> ' + tips[(S.drive + S.down + S.snaps) % tips.length] + '</p>';
+  $("stage").innerHTML = h;
+}
+
+function pickChallenge(tier) {
+  const pool = CH.filter(c => c.tier === tier);
+  const tiers = [
+    pool.filter(c => !P.solved[c.id] && !S.seen.includes(c.id)),
+    pool.filter(c => !S.seen.includes(c.id)),
+    pool
+  ];
+  const list = tiers.find(l => l.length);
+  const c = list[Math.floor(Math.random() * list.length)];
+  S.seen.push(c.id);
+  if (S.seen.length > 20) S.seen = S.seen.slice(-20);
+  return c;
+}
+
+function callPlay(call) {
+  if (call === "punt") {
+    addLog("PUNT", "info", "Punted from " + ballText(S.yl) + ".");
+    endPossession();
+    return render();
+  }
+  const tier = call === "fg" ? "run" : call;
+  const c = pickChallenge(tier);
+  Object.assign(S, { phase: "play", cur: c.id, tier, kind: call === "fg" ? "fg" : "play", snapped: false, hintShown: false });
+  render();
+  const ta = $("code"); if (ta) ta.focus();
+}
+
+function openPractice(id) {
+  if (S.phase !== "practice") S.returnTo = { phase: S.phase, cur: S.cur, tier: S.tier, kind: S.kind, snapped: S.snapped, hintShown: S.hintShown };
+  Object.assign(S, { phase: "practice", cur: id, tier: BYID[id].tier, kind: "practice", snapped: false, hintShown: false });
+  render();
+  window.scrollTo({ top: $("stage").offsetTop - 12, behavior: "smooth" });
+}
+function leavePractice() {
+  const r = S.returnTo || { phase: "huddle" };
+  S.returnTo = null;
+  Object.assign(S, r);
+  if (S.over) S.phase = "final";
+  render();
+}
+
+/* ---------- stage: challenge ---------- */
+function starter(c) { return "function " + c.sig + " {\n  // your code here\n  \n}\n"; }
+function renderChallenge() {
+  const c = BYID[S.cur], T = TIERS[c.tier], practice = S.kind === "practice";
+  const label = practice ? "Practice · " + T.name : S.kind === "fg" ? "Field goal · " + (100 - S.yl + 17) + " yds" : T.label + " · " + T.name;
+  const examples = c.tests.slice(0, 2).map(t => '<div>' + esc(c.fn) + '(' + esc(t.a.map(fmt).join(", ")) + ') <b>→ ' + esc(fmt(t.e)) + '</b></div>').join("");
+  const code = P.drafts[c.id] ?? starter(c);
+  const hintLabel = practice ? "Show hint" : "Timeout: hint (" + S.timeouts + " left)";
+  let h = '<div class="ch-head"><div><span class="pill ' + (practice ? "practice-flag" : "") + '">' + esc(label) + '</span><h2>' + esc(c.title) + '</h2></div>' +
+    (practice ? '<button class="btn" type="button" id="btnLeave">' + (S.over ? "Back to final" : "Back to game") + '</button>' : '<span class="eyebrow">' + ddText(S.down, S.toGo, S.yl) + ' · ' + ballText(S.yl) + '</span>') + '</div>';
+  h += '<p class="prompt">' + c.prompt + '</p>';
+  h += '<div class="examples">' + examples + '</div>';
+  h += '<div class="editor"><div class="ed-bar"><span class="mono">play.js</span><span>Tab indents · Ctrl/⌘ + Enter runs examples</span></div><textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code editor">' + esc(code) + '</textarea></div>';
+  h += '<div class="actions">' +
+    '<button class="btn" type="button" id="btnEx">Run examples</button>' +
+    '<button class="btn primary" type="button" id="btnSnap">' + (practice ? "Run all tests" : S.snapped ? "Re-run all tests" : "Snap the ball") + '</button>' +
+    '<button class="btn" type="button" id="btnHint"' + (S.hintShown || (!practice && S.timeouts === 0 && !S.snapped) ? " disabled" : "") + '>' + (S.snapped && !practice ? "Show hint" : hintLabel) + '</button>' +
+    (practice || S.snapped ? '<button class="btn" type="button" id="btnFilm">Film room</button>' : '') +
+    '<button class="btn" type="button" id="btnReset">Reset code</button>' +
+    '</div>';
+  h += '<div class="hint" id="hintBox"' + (S.hintShown ? "" : " hidden") + '><b>Hint:</b> ' + c.hint + '</div>';
+  h += '<div id="result"></div>';
+  h += '<div class="film" id="film" hidden><div class="eyebrow">Film room</div><p class="note">' + c.note + '</p><pre class="sol">' + esc(c.sol) + '</pre></div>';
+  $("stage").innerHTML = h;
+  wireEditor();
+}
+
+function wireEditor() {
+  const ta = $("code");
+  ta.addEventListener("input", () => { P.drafts[S.cur] = ta.value; persist(); });
+  ta.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runExamples(); return; }
+    if (e.key === "Escape") { ta.blur(); return; }
+    if (e.key === "Tab" && !e.shiftKey) {
+      e.preventDefault();
+      insertAt(ta, "  ");
+    } else if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const before = ta.value.slice(0, ta.selectionStart);
+      const line = before.split("\n").pop();
+      let indent = line.match(/^\s*/)[0];
+      if (/[{[(]\s*$/.test(line)) indent += "  ";
+      insertAt(ta, "\n" + indent);
+    } else if (e.key === "}" ) {
+      const before = ta.value.slice(0, ta.selectionStart);
+      const line = before.split("\n").pop();
+      if (/^\s+$/.test(line) && line.length >= 2) {
+        e.preventDefault();
+        const s = ta.selectionStart;
+        ta.setRangeText("}", s - 2, s, "end");
+        ta.dispatchEvent(new Event("input"));
+      }
+    }
+  });
+}
+function insertAt(ta, text) {
+  ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, "end");
+  ta.dispatchEvent(new Event("input"));
+}
+
+/* ---------- running code safely in a worker ---------- */
+function workerMain() {
+  function eq(a, b) {
+    if (typeof a === "number" && typeof b === "number") return Math.abs(a - b) < 1e-9 || (a !== a && b !== b);
+    if (a === b) return true;
+    if (a && b && typeof a === "object" && typeof b === "object") {
+      if (Array.isArray(a) !== Array.isArray(b)) return false;
+      const ka = Object.keys(a), kb = Object.keys(b);
+      if (ka.length !== kb.length) return false;
+      return ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && eq(a[k], b[k]));
+    }
+    return false;
+  }
+  function show(v) {
+    if (v === undefined) return "undefined";
+    if (typeof v === "function") return "[function]";
+    if (typeof v === "number" && !isFinite(v)) return String(v);
+    try { return JSON.stringify(v); } catch (e) { return String(v); }
+  }
+  self.onmessage = function (e) {
+    const d = e.data, logs = [];
+    const out = function () { if (logs.length < 40) logs.push(Array.prototype.map.call(arguments, x => typeof x === "string" ? x : show(x)).join(" ")); };
+    console.log = out; console.info = out; console.warn = out; console.error = out;
+    let fn;
+    try { fn = new Function(d.code + "\n;return (typeof " + d.fn + " === 'function') ? " + d.fn + " : undefined;")(); }
+    catch (err) { self.postMessage({ error: err.name + ": " + err.message, logs }); return; }
+    if (!fn) { self.postMessage({ error: "Couldn't find a function named " + d.fn + ". Keep the function name from the starter code.", logs }); return; }
+    const results = d.tests.map(t => {
+      try { const got = fn.apply(null, JSON.parse(JSON.stringify(t.a))); return { ok: eq(got, t.e), got: show(got) }; }
+      catch (err) { return { ok: false, got: err.name + ": " + err.message, threw: true }; }
+    });
+    self.postMessage({ results, logs });
+  };
+}
+let workerURL = null;
+try { workerURL = URL.createObjectURL(new Blob(["(" + workerMain.toString() + ")()"], { type: "text/javascript" })); } catch (e) {}
+
+function runCode(code, c, tests) {
+  return new Promise(resolve => {
+    let w;
+    try { w = new Worker(workerURL); } catch (e) { w = null; }
+    if (!w) return resolve(runInline(code, c, tests));
+    const timer = setTimeout(() => { w.terminate(); resolve({ error: "Play clock expired: your code ran longer than 2 seconds. Look for a loop that never ends." }); }, 2000);
+    w.onmessage = e => { clearTimeout(timer); w.terminate(); resolve(e.data); };
+    w.onerror = e => { clearTimeout(timer); w.terminate(); resolve({ error: e.message || "Your code threw an error." }); };
+    w.postMessage({ code, fn: c.fn, tests });
+  });
+}
+function runInline(code, c, tests) {
+  // Fallback when Workers are unavailable: same checks, no timeout protection.
+  const logs = [];
+  const orig = console.log;
+  console.log = (...a) => logs.push(a.map(x => typeof x === "string" ? x : fmt(x)).join(" "));
+  try {
+    const fn = new Function(code + "\n;return (typeof " + c.fn + " === 'function') ? " + c.fn + " : undefined;")();
+    if (!fn) return { error: "Couldn't find a function named " + c.fn + ".", logs };
+    const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b) || (typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 1e-9);
+    const results = tests.map(t => { try { const g = fn(...JSON.parse(JSON.stringify(t.a))); return { ok: eq(g, t.e), got: fmt(g) }; } catch (err) { return { ok: false, got: err.name + ": " + err.message, threw: true }; } });
+    return { results, logs };
+  } catch (err) { return { error: err.name + ": " + err.message, logs }; }
+  finally { console.log = orig; }
+}
+
+function renderResults(c, tests, res, banner) {
+  let h = banner || "";
+  if (res.error) h += '<div class="err">Flag on the play: ' + esc(res.error) + '</div>';
+  else {
+    const passed = res.results.filter(r => r.ok).length;
+    h += '<div class="eyebrow" style="margin-top:14px">' + passed + ' of ' + res.results.length + ' tests passing</div><div class="tests">' +
+      res.results.map((r, i) => {
+        const t = tests[i];
+        return '<div class="t ' + (r.ok ? "ok" : "no") + '"><span class="g">' + (r.ok ? "✓" : "✗") + '</span><div class="body">' + esc(c.fn) + '(' + esc(t.a.map(fmt).join(", ")) + ')' +
+          '<div class="exp">expected ' + esc(fmt(t.e)) + (r.ok ? "" : ' · got ' + esc(r.got)) + '</div></div></div>';
+      }).join("") + '</div>';
+  }
+  if (res.logs && res.logs.length) h += '<div class="console"><b>console</b>\n' + esc(res.logs.join("\n")) + '</div>';
+  $("result").innerHTML = h;
+}
+
+let busy = false;
+async function runExamples() {
+  if (busy) return; busy = true;
+  const c = BYID[S.cur], tests = c.tests.slice(0, 2);
+  const res = await runCode($("code").value, c, tests);
+  renderResults(c, tests, res, '<div class="eyebrow" style="margin-top:14px">Walkthrough: examples only, no snap used</div>');
+  busy = false;
+}
+
+async function snap() {
+  if (busy) return; busy = true;
+  const c = BYID[S.cur];
+  const res = await runCode($("code").value, c, c.tests);
+  const passed = !res.error && res.results.every(r => r.ok);
+  if (passed && !P.solved[c.id]) { P.solved[c.id] = true; persist(); renderPlaybook(); }
+
+  if (S.kind === "practice" || S.snapped) {
+    const b = passed ? '<div class="banner good"><span class="call">All tests pass</span><span class="sub">' + (S.kind === "practice" ? "Checked off in your playbook." : "That's the rep. Back to the huddle when you're ready.") + '</span></div>'
+                     : '<div class="banner bad"><span class="call">Not yet</span><span class="sub">Check the failing tests below.</span></div>';
+    renderResults(c, c.tests, res, b + (S.kind !== "practice" ? nextBtn() : ""));
+    wireNext(); busy = false; return;
+  }
+
+  S.snapped = true; S.snaps++; if (passed) S.hits++;
+  const out = resolvePlay(passed, c);
+  renderBoard(); renderLog();
+  renderChallenge();
+  $("code").value = P.drafts[c.id] ?? $("code").value;
+  renderResults(c, c.tests, res, '<div class="banner ' + out.cls + '"><span class="call">' + esc(out.call) + '</span><span class="sub">' + esc(out.sub) + '</span></div>' + nextBtn());
+  if (!passed) $("film").hidden = false;
+  wireNext();
+  busy = false;
+}
+function nextBtn() { return '<div class="actions"><button class="btn gold" type="button" id="btnNext">' + (S.over ? "See final score" : "Back to the huddle") + '</button></div>'; }
+function wireNext() { const b = $("btnNext"); if (b) b.onclick = () => { S.phase = S.over ? "final" : "huddle"; render(); window.scrollTo({ top: 0, behavior: "smooth" }); }; }
+
+function endPossession() {
+  S.drive++;
+  Object.assign(S, { yl: 25, down: 1, toGo: 10, timeouts: 3 });
+  if (S.drive > DRIVES_PER_GAME) {
+    S.over = true;
+    if (S.score > P.best) { P.best = S.score; persist(); }
+  }
+}
+
+function resolvePlay(passed, c) {
+  const T = TIERS[S.tier];
+  if (S.kind === "fg") {
+    const dist = 100 - S.yl + 17;
+    if (passed) { S.score += 3; S.fgs++; addLog("+3", "score", dist + "-yd field goal is GOOD. (" + c.title + ")"); endPossession(); return { cls: "score", call: "It's good! +3", sub: "Field goal from " + dist + " yards." }; }
+    addLog("NO", "turnover", dist + "-yd field goal missed. (" + c.title + ")"); endPossession();
+    return { cls: "bad", call: "Wide right", sub: "Missed field goal. Study the film, then rewrite it." };
+  }
+  let gain;
+  if (passed) gain = rand(T.gain[0], T.gain[1]);
+  else if (S.tier === "run") gain = rand(-2, 1);
+  else if (S.tier === "deep" && Math.random() < 0.3) {
+    addLog("INT", "turnover", T.label + " intercepted. (" + c.title + ")"); endPossession();
+    return { cls: "bad", call: "Intercepted", sub: "Possession over. The film room is open below." };
+  } else gain = 0;
+
+  const before = { down: S.down, toGo: S.toGo };
+  const newYl = S.yl + gain;
+  const label = T.label + (passed ? "" : S.tier === "run" ? " stuffed" : " incomplete") + ". (" + c.title + ")";
+  if (newYl >= 100) {
+    S.score += 7; S.tds++;
+    addLog("TD", "score", T.label + " for a " + (100 - S.yl) + "-yd touchdown! (" + c.title + ")");
+    endPossession();
+    return { cls: "score", call: "Touchdown! +7", sub: (100 - S.yl) + "-yard score. Extra point is good." };
+  }
+  if (newYl <= 0) {
+    S.score -= 2;
+    addLog("SAF", "turnover", "Tackled in the end zone for a safety. (" + c.title + ")"); endPossession();
+    return { cls: "bad", call: "Safety, -2", sub: "Tackled in your own end zone." };
+  }
+  addLog((gain > 0 ? "+" : "") + gain, gain > 0 ? "gain" : gain < 0 ? "loss" : "info", label);
+  S.yl = newYl;
+  if (gain >= S.toGo) {
+    S.down = 1; S.toGo = 10;
+    return { cls: "good", call: "+" + gain + " · First down", sub: "Chains move. " + ddText(1, 10, S.yl) + " at " + ballText(S.yl) + "." };
+  }
+  S.toGo -= gain; S.down++;
+  if (S.down > 4) {
+    addLog("TOD", "turnover", "Turnover on downs at " + ballText(S.yl) + ".");
+    endPossession();
+    return { cls: "bad", call: "Turnover on downs", sub: (passed ? "Gained " + gain + ", " : "") + "came up short on 4th down." };
+  }
+  const call = passed ? "+" + gain + " yards" : S.tier === "run" ? (gain < 0 ? "Stuffed, " + gain : "Stuffed, no gain") + "" : "Incomplete";
+  return { cls: passed ? "good" : "bad", call, sub: ddText(S.down, S.toGo, S.yl) + " coming up." + (passed ? "" : " Check the film room below.") };
+}
+
+/* ---------- final ---------- */
+function renderFinal() {
+  const pctC = S.snaps ? Math.round(S.hits / S.snaps * 100) : 0;
+  $("stage").innerHTML = '<div class="final"><div class="eyebrow">Final · ' + DRIVES_PER_GAME + ' possessions</div><div class="big">' + S.score + '</div><h2>' + (S.score >= P.best && S.score > 0 ? "New personal best" : "Best: " + P.best + " pts") + '</h2>' +
+    '<div class="stats"><div><b>' + S.tds + '</b><span>Touchdowns</span></div><div><b>' + S.fgs + '</b><span>Field goals</span></div><div><b>' + S.hits + '/' + S.snaps + '</b><span>Plays completed</span></div><div><b>' + pctC + '%</b><span>Completion</span></div></div>' +
+    '<p class="coach-tip">Any play you missed is still in your playbook on the right. Practice it until it checks off, then run it back.</p>' +
+    '<div class="actions"><button class="btn gold" type="button" id="btnAgain">Run it back</button></div></div>';
+  $("btnAgain").onclick = newGame;
+}
+
+/* ---------- render + events ---------- */
+function render() {
+  renderBoard(); renderLog(); renderPlaybook();
+  if (S.phase === "huddle") renderHuddle();
+  else if (S.phase === "final") renderFinal();
+  else renderChallenge();
+}
+function newGame() { S = freshGame(); render(); }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.call) return callPlay(t.dataset.call);
+  if (t.dataset.practice) return openPractice(t.dataset.practice);
+  switch (t.id) {
+    case "btnNew": newGame(); break;
+    case "btnEx": runExamples(); break;
+    case "btnSnap": snap(); break;
+    case "btnLeave": leavePractice(); break;
+    case "btnFilm": $("film").hidden = !$("film").hidden; break;
+    case "btnReset": { const c = BYID[S.cur]; $("code").value = starter(c); delete P.drafts[c.id]; persist(); break; }
+    case "btnHint":
+      if (S.kind === "play" || S.kind === "fg") { if (!S.snapped) { if (S.timeouts <= 0) return; S.timeouts--; addLog("TO", "info", "Timeout called for a hint."); renderBoard(); renderLog(); } }
+      S.hintShown = true; $("hintBox").hidden = false; t.disabled = true; t.textContent = "Hint shown"; break;
+  }
+});
+
+function start(data) {
+  S = (data && data.S) ? data.S : freshGame();
+  buildField();
+  render();
+}
+try { window.claude?.hot?.snapshot?.(() => ({ S })); } catch (e) {}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>

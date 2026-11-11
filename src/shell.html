@@ -1,0 +1,63 @@
+<title>{{TITLE}}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+{{STYLE}}
+</style>
+{{LIBS}}
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>{{BRAND}}</h1>
+      <p>{{TAGLINE}}</p>
+    </div>
+    <div class="top-actions">
+      <span class="loading" id="loading">Loading the {{LANG}} engine…</span>
+      <div class="modes" role="tablist"><button type="button" data-mode="camp">Training Camp</button><button type="button" data-mode="game">Game Day</button></div>
+      <button class="btn" id="btnNew" type="button">New game</button>
+    </div>
+  </header>
+
+  <section class="camp-strip" id="campBar" hidden></section>
+
+  <div id="gameBar">
+    <section class="board" aria-label="Scoreboard">
+      <div class="cell"><div class="lab">Points</div><div class="val big" id="sbScore">0</div></div>
+      <div class="cell"><div class="lab">Possession</div><div class="val" id="sbDrive">1 / 8</div></div>
+      <div class="cell"><div class="lab">Down</div><div class="val" id="sbDown">Kickoff</div></div>
+      <div class="cell"><div class="lab">Ball on</div><div class="val" id="sbBall">OWN 25</div></div>
+      <div class="cell"><div class="lab">Completion</div><div class="val" id="sbComp">0/0</div></div>
+      <div class="cell"><div class="lab">Timeouts</div><div class="tos" id="sbTO"></div></div>
+    </section>
+    <div style="margin-top:14px">
+      <div class="field-wrap"><div class="field" id="field" aria-label="Field position"></div></div>
+      <div class="legend"><span><b style="background:var(--los)"></b>Line of scrimmage</span><span><b style="background:var(--fd)"></b>First down marker</span><span>Driving left to right</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <main class="panel" id="stage" aria-live="polite"></main>
+    <aside>
+      <section class="panel" id="logPanel">
+        <h3>Play-by-play</h3>
+        <ul class="log" id="log"></ul>
+      </section>
+      <section class="panel">
+        <div class="pb-head"><h3>Playbook</h3><span class="pb-count" id="pbCount">0/0</span></div>
+        <div class="bar"><i id="pbBar" style="width:0%"></i></div>
+        <p class="side-note">Every drill you complete gets checked off. Tap one to jump to it.</p>
+        <div id="pbList"></div>
+      </section>
+      {{SIDEBAR}}
+    </aside>
+  </div>
+</div>
+
+<script>
+{{NFL}}
+{{CONTENT}}
+{{ENGINE}}
+</script>

@@ -1,0 +1,1254 @@
+<title>Playbook.sql</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: broadcast scoreboard on top, live field strip, then a two-column sideline: the drill (left) and the stat crew (right). */
+:root {
+  --bg: #EDF0EA; --surface: #FFFFFF; --surface-2: #F6F8F3; --ink: #16201A; --muted: #5A665E; --line: #D2D9D0;
+  --gold: #A87A06; --gold-soft: #F4E7C2; --turf: #2E6A3C; --turf-2: #347545; --endzone: #1F4B2A; --chalk: #F4F3EA;
+  --los: #5AA9FF; --fd: #F2C230; --board: #121915; --board-ink: #F1EFE4; --board-dim: #8E9A92;
+  --good: #1D7A3E; --good-soft: #DCF0E2; --bad: #B0281F; --bad-soft: #F8DEDB; --info-soft: #DCE9F7;
+  --code-bg: #FBFCF9; --code-ink: #1B2620; --chalkboard: #1E3A2A; --chalkboard-ink: #EEF3E6;
+  --f-display: "Teko", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C110E; --surface: #141B17; --surface-2: #19221D; --ink: #E4EAE3; --muted: #94A198; --line: #26312A;
+    --gold: #E3B53E; --gold-soft: #3A3018; --turf: #23542F; --turf-2: #285D35; --endzone: #173B21;
+    --board: #060907; --board-ink: #F1EFE4; --board-dim: #7F8B83; --good: #52C47F; --good-soft: #15301F;
+    --bad: #F2766B; --bad-soft: #3A1A17; --info-soft: #14283B; --code-bg: #0F1512; --code-ink: #DCE6DE;
+    --chalkboard: #152B1E; --chalkboard-ink: #E6EEDD; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C110E; --surface: #141B17; --surface-2: #19221D; --ink: #E4EAE3; --muted: #94A198; --line: #26312A;
+  --gold: #E3B53E; --gold-soft: #3A3018; --turf: #23542F; --turf-2: #285D35; --endzone: #173B21;
+  --board: #060907; --board-ink: #F1EFE4; --board-dim: #7F8B83; --good: #52C47F; --good-soft: #15301F;
+  --bad: #F2766B; --bad-soft: #3A1A17; --info-soft: #14283B; --code-bg: #0F1512; --code-ink: #DCE6DE;
+  --chalkboard: #152B1E; --chalkboard-ink: #E6EEDD; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, textarea:focus-visible, .pb-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+p code, li code, .prompt code, .note code, .hint code, .talk code, .opt code { background: var(--surface-2); border: 1px solid var(--line); padding: 0 4px; border-radius: 3px; }
+.talk code { background: #ffffff14; border-color: #ffffff22; }
+
+/* header */
+.top { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-family: var(--f-display); font-weight: 600; font-size: 46px; line-height: 0.8; margin: 0; letter-spacing: 0.5px; text-wrap: balance; }
+.brand h1 span { color: var(--gold); }
+.brand p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 8px 14px; border-radius: 6px; font-weight: 600; font-size: 14px; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn.primary:hover { opacity: 0.9; }
+.btn.gold { background: var(--fd); color: #1A1406; border-color: var(--fd); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.modes { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.modes button { border: 0; background: none; color: var(--muted); padding: 8px 14px; font-weight: 600; font-size: 14px; }
+.modes button.on { background: var(--ink); color: var(--bg); }
+.loading { font-size: 13px; color: var(--muted); }
+
+/* scoreboard */
+.board { background: var(--board); color: var(--board-ink); border-radius: 8px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); overflow: hidden; }
+.cell { padding: 10px 14px 8px; border-right: 1px solid #ffffff14; min-width: 0; }
+.cell:last-child { border-right: 0; }
+.cell .lab { font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--board-dim); font-weight: 600; }
+.cell .val { font-family: var(--f-display); font-size: 34px; line-height: 1; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell .val.big { color: var(--fd); font-size: 42px; }
+.tos { display: flex; gap: 6px; margin-top: 12px; }
+.tos i { width: 22px; height: 7px; border-radius: 2px; background: var(--fd); }
+.tos i.used { background: #ffffff22; }
+@media (max-width: 760px) {
+  .board { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cell:nth-child(3) { border-right: 0; }
+  .cell:nth-child(-n+3) { border-bottom: 1px solid #ffffff14; }
+  .cell .val { font-size: 28px; } .cell .val.big { font-size: 34px; }
+}
+
+/* field */
+.field-wrap { overflow: hidden; border-radius: 8px; }
+.field { position: relative; height: 92px; background: repeating-linear-gradient(90deg, var(--turf) 0 8.3333%, var(--turf-2) 8.3333% 16.6667%); }
+.ez { position: absolute; top: 0; bottom: 0; width: 8.3333%; background: var(--endzone); display: flex; align-items: center; justify-content: center; }
+.ez span { writing-mode: vertical-rl; font-family: var(--f-display); color: var(--chalk); opacity: 0.75; font-size: 17px; letter-spacing: 3px; }
+.ez.l span { transform: rotate(180deg); }
+.ez.l { left: 0; } .ez.r { right: 0; }
+.yl { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--chalk); opacity: 0.55; transform: translateX(-1px); }
+.yn { position: absolute; bottom: 4px; transform: translateX(-50%); font-family: var(--f-display); color: var(--chalk); font-size: 18px; opacity: 0.8; line-height: 1; }
+.mark { position: absolute; top: 0; bottom: 0; width: 3px; transform: translateX(-1.5px); transition: left 0.7s cubic-bezier(.2,.8,.2,1); }
+.mark.los { background: var(--los); }
+.mark.fd { background: var(--fd); }
+.ball { position: absolute; top: 34px; width: 22px; height: 13px; border-radius: 50%; background: #7B3F1D; border: 1px solid #4A230E; transform: translateX(-50%); transition: left 0.7s cubic-bezier(.2,.8,.2,1); box-shadow: 0 2px 3px #0005; }
+.ball::after { content: ""; position: absolute; left: 6px; right: 6px; top: 5px; height: 2px; background: #F4F3EA; border-radius: 1px; }
+.legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
+.legend b { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 6px; }
+@media (prefers-reduced-motion: reduce) { .mark, .ball { transition: none; } }
+
+/* camp strip */
+.camp-strip { background: var(--chalkboard); color: var(--chalkboard-ink); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; gap: 14px; align-items: center; flex-wrap: wrap; }
+.camp-strip .big { font-family: var(--f-display); font-size: 34px; line-height: 0.9; }
+.camp-strip .sub { font-size: 13px; opacity: 0.8; }
+.camp-strip .prog { flex: 1 1 240px; }
+.camp-strip .bar { background: #ffffff1a; border-color: transparent; }
+.camp-strip .bar i { background: var(--fd); }
+
+/* main grid */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; }
+.eyebrow { font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+h2 { font-family: var(--f-display); font-weight: 500; font-size: 34px; line-height: 1; margin: 4px 0 0; text-wrap: balance; }
+h3 { font-family: var(--f-display); font-weight: 500; font-size: 24px; line-height: 1; margin: 0; }
+h4 { font-family: var(--f-display); font-weight: 500; font-size: 20px; line-height: 1; margin: 0 0 4px; letter-spacing: 0.3px; }
+
+/* huddle */
+.huddle-head { display: flex; justify-content: space-between; align-items: end; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.plays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 620px) { .plays { grid-template-columns: minmax(0, 1fr); } }
+.play { text-align: left; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 14px; color: var(--ink); display: flex; flex-direction: column; gap: 6px; transition: border-color .15s, transform .15s; }
+.play:hover { border-color: var(--gold); transform: translateY(-2px); }
+.play .pn { font-family: var(--f-display); font-size: 30px; line-height: 0.9; }
+.play .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+.play .yds { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.play .desc { font-size: 13px; color: var(--muted); }
+.diff { display: inline-flex; gap: 3px; }
+.diff i { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--gold); }
+.diff i.on { background: var(--gold); }
+.special { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.special .plays { margin-top: 10px; }
+.coach-tip { margin-top: 16px; font-size: 14px; color: var(--muted); max-width: 65ch; }
+
+/* trivia kickoff */
+.kick { display: flex; flex-direction: column; gap: 14px; }
+.spin { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.helmet { width: 64px; height: 64px; border-radius: 50%; background: var(--board); color: var(--fd); display: grid; place-items: center; font-family: var(--f-display); font-size: 24px; letter-spacing: 1px; flex: none; border: 3px solid var(--gold); }
+.spin .tn { font-family: var(--f-display); font-size: 40px; line-height: 0.9; }
+.spin .tl { font-size: 13px; color: var(--muted); }
+.q { font-size: 18px; font-weight: 600; max-width: 65ch; }
+.opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 560px) { .opts { grid-template-columns: minmax(0, 1fr); } }
+.opt { text-align: left; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 6px; padding: 10px 12px; font-weight: 500; }
+.opt:hover { border-color: var(--gold); }
+.opt.right { background: var(--good-soft); border-color: var(--good); color: var(--good); font-weight: 700; }
+.opt.wrong { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.opt:disabled { cursor: default; }
+.fact { font-size: 14px; color: var(--muted); max-width: 70ch; }
+.fact b { color: var(--ink); }
+
+/* challenge */
+.ch-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; flex-wrap: wrap; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--gold-soft); color: var(--gold); }
+.pill.blue { background: var(--info-soft); color: var(--ink); }
+.prompt { margin: 12px 0 10px; max-width: 70ch; }
+.examples { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+.examples div { font-family: var(--f-mono); font-size: 13px; color: var(--muted); overflow-x: auto; white-space: nowrap; }
+.examples div b { color: var(--ink); font-weight: 600; }
+
+/* chalk talk */
+.talk { background: var(--chalkboard); color: var(--chalkboard-ink); border-radius: 8px; padding: 14px 16px; margin: 12px 0 14px; display: flex; flex-direction: column; gap: 10px; }
+.talk .eyebrow { color: var(--fd); }
+.talk h4 { color: var(--chalkboard-ink); }
+.talk p { margin: 0; max-width: 72ch; font-size: 14.5px; }
+.talk pre { margin: 0; background: #00000033; border-radius: 6px; padding: 10px 12px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.55; overflow-x: auto; color: var(--chalkboard-ink); }
+.talk-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 700px) { .talk-row { grid-template-columns: minmax(0, 1fr); } }
+.talk-toggle { align-self: flex-start; }
+
+.editor { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--code-bg); }
+.ed-bar { display: flex; justify-content: space-between; gap: 10px; padding: 6px 12px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--surface-2); flex-wrap: wrap; }
+.ed-bar .mono { color: var(--ink); }
+textarea#code { display: block; width: 100%; min-height: 220px; resize: vertical; border: 0; outline: none; background: var(--code-bg); color: var(--code-ink); font-family: var(--f-mono); font-size: 13.5px; line-height: 1.6; padding: 12px 14px; tab-size: 4; white-space: pre; overflow-x: auto; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.hint { margin-top: 12px; padding: 10px 14px; border-radius: 6px; background: var(--gold-soft); font-size: 14px; }
+.hint b { color: var(--gold); }
+
+.banner { margin-top: 14px; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.banner .call { font-family: var(--f-display); font-size: 34px; line-height: 0.9; }
+.banner .sub { font-size: 14px; color: var(--ink); }
+.banner.good { background: var(--good-soft); color: var(--good); }
+.banner.bad { background: var(--bad-soft); color: var(--bad); }
+.banner.score { background: var(--fd); color: #1A1406; }
+.banner.score .sub { color: #1A1406; }
+.banner.info { background: var(--info-soft); color: var(--ink); }
+
+.tests { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.t { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; font-family: var(--f-mono); font-size: 12.5px; padding: 7px 10px; border-radius: 6px; background: var(--surface-2); border-left: 3px solid var(--line); }
+.t.ok { border-left-color: var(--good); }
+.t.no { border-left-color: var(--bad); }
+.t .g { font-weight: 700; }
+.t.ok .g { color: var(--good); } .t.no .g { color: var(--bad); }
+.t .body { overflow-x: auto; white-space: nowrap; }
+.t .exp { color: var(--muted); }
+.err { margin-top: 12px; padding: 10px 14px; border-radius: 6px; background: var(--bad-soft); color: var(--bad); font-family: var(--f-mono); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.err small { display: block; font-family: var(--f-body); color: var(--ink); margin-top: 6px; }
+.console { margin-top: 10px; font-family: var(--f-mono); font-size: 12.5px; background: var(--code-bg); border: 1px dashed var(--line); border-radius: 6px; padding: 8px 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); }
+.tblwrap { margin-top: 10px; overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+table.res { border-collapse: collapse; font-family: var(--f-mono); font-size: 12.5px; min-width: 100%; }
+table.res th, table.res td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+table.res th { background: var(--surface-2); font-weight: 600; color: var(--ink); }
+table.res td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.res td.null { color: var(--muted); font-style: italic; }
+.tbl-cap { font-size: 12px; color: var(--muted); margin-top: 10px; }
+.film { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.note { max-width: 70ch; margin: 6px 0 10px; }
+pre.sol { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-family: var(--f-mono); font-size: 13px; line-height: 1.6; overflow-x: auto; color: var(--code-ink); }
+.walk { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.walk li { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 10px; font-size: 13.5px; padding: 6px 0; border-top: 1px dashed var(--line); }
+.walk li code { font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .walk li { grid-template-columns: minmax(0, 1fr); } }
+.schema { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+@media (max-width: 560px) { .schema { grid-template-columns: minmax(0, 1fr); } }
+.schema div { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; font-size: 12.5px; }
+.schema b { font-family: var(--f-mono); font-size: 12.5px; }
+.schema span { color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; display: block; overflow-wrap: anywhere; }
+
+/* sidebar */
+aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.log { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; max-height: 300px; overflow-y: auto; }
+.log li { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13.5px; }
+.log li:first-child { border-top: 0; }
+.log .tag { font-family: var(--f-display); font-size: 19px; line-height: 1; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.log .tag.gain { color: var(--good); } .log .tag.loss, .log .tag.turnover { color: var(--bad); } .log .tag.score { color: var(--gold); } .log .tag.info { color: var(--muted); }
+.log .sit { font-size: 11.5px; color: var(--muted); letter-spacing: 0.4px; }
+.empty { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+.pb-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pb-count { font-family: var(--f-display); font-size: 22px; color: var(--gold); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin: 8px 0 4px; border: 1px solid var(--line); }
+.bar i { display: block; height: 100%; background: var(--gold); transition: width .4s; }
+.pb-group { margin-top: 12px; }
+.pb-group .eyebrow { margin-bottom: 4px; }
+.pb-item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; background: none; border: 0; border-radius: 4px; padding: 5px 6px; color: var(--ink); font-size: 14px; text-align: left; }
+.pb-item:hover { background: var(--surface-2); }
+.pb-item.cur { background: var(--gold-soft); }
+.pb-item .ck { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--line); flex: none; display: grid; place-items: center; font-size: 10px; color: var(--bg); }
+.pb-item .ck.done { background: var(--good); border-color: var(--good); }
+.pb-item .t2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-item .cpt { font-size: 11px; color: var(--muted); flex: none; }
+.side-note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+
+.final .big { font-family: var(--f-display); font-size: 88px; line-height: 0.85; color: var(--gold); font-variant-numeric: tabular-nums; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin: 16px 0; }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+.stats div { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; }
+.stats b { display: block; font-family: var(--f-display); font-size: 30px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stats span { font-size: 12px; color: var(--muted); }
+.camp-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-asm.js"></script>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Playbook<span>.sql</span></h1>
+      <p>Call a play. Write the query. Move the chains.</p>
+    </div>
+    <div class="top-actions">
+      <span class="loading" id="loading">Loading the SQL engine…</span>
+      <div class="modes" role="tablist"><button type="button" data-mode="camp">Training Camp</button><button type="button" data-mode="game">Game Day</button></div>
+      <button class="btn" id="btnNew" type="button">New game</button>
+    </div>
+  </header>
+
+  <section class="camp-strip" id="campBar" hidden></section>
+
+  <div id="gameBar">
+    <section class="board" aria-label="Scoreboard">
+      <div class="cell"><div class="lab">Points</div><div class="val big" id="sbScore">0</div></div>
+      <div class="cell"><div class="lab">Possession</div><div class="val" id="sbDrive">1 / 8</div></div>
+      <div class="cell"><div class="lab">Down</div><div class="val" id="sbDown">Kickoff</div></div>
+      <div class="cell"><div class="lab">Ball on</div><div class="val" id="sbBall">OWN 25</div></div>
+      <div class="cell"><div class="lab">Completion</div><div class="val" id="sbComp">0/0</div></div>
+      <div class="cell"><div class="lab">Timeouts</div><div class="tos" id="sbTO"></div></div>
+    </section>
+    <div style="margin-top:14px">
+      <div class="field-wrap"><div class="field" id="field" aria-label="Field position"></div></div>
+      <div class="legend"><span><b style="background:var(--los)"></b>Line of scrimmage</span><span><b style="background:var(--fd)"></b>First down marker</span><span>Driving left to right</span></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <main class="panel" id="stage" aria-live="polite"></main>
+    <aside>
+      <section class="panel" id="logPanel">
+        <h3>Play-by-play</h3>
+        <ul class="log" id="log"></ul>
+      </section>
+      <section class="panel">
+        <div class="pb-head"><h3>Playbook</h3><span class="pb-count" id="pbCount">0/0</span></div>
+        <div class="bar"><i id="pbBar" style="width:0%"></i></div>
+        <p class="side-note">Every drill you complete gets checked off. Tap one to jump to it.</p>
+        <div id="pbList"></div>
+      </section>
+      <section class="panel"><h3>The database</h3><p class="side-note">Four tables. Column names are exactly as shown.</p><div class="schema" id="schema"></div></section>
+    </aside>
+  </div>
+</div>
+
+<script>
+/* NFL reference data used by the trivia kickoff (and, in the SQL game, loaded into the database).
+   Super Bowl counts are through Super Bowl LX (February 2026). */
+const TEAMS = [
+  // abbr, name, location, conference, division, stadium, first_season, super_bowls
+  ["ARI","Cardinals","Arizona","NFC","West","State Farm Stadium",1920,0],
+  ["ATL","Falcons","Atlanta","NFC","South","Mercedes-Benz Stadium",1966,0],
+  ["BAL","Ravens","Baltimore","AFC","North","M&T Bank Stadium",1996,2],
+  ["BUF","Bills","Buffalo","AFC","East","Highmark Stadium",1960,0],
+  ["CAR","Panthers","Carolina","NFC","South","Bank of America Stadium",1995,0],
+  ["CHI","Bears","Chicago","NFC","North","Soldier Field",1920,1],
+  ["CIN","Bengals","Cincinnati","AFC","North","Paycor Stadium",1968,0],
+  ["CLE","Browns","Cleveland","AFC","North","Huntington Bank Field",1946,0],
+  ["DAL","Cowboys","Dallas","NFC","East","AT&T Stadium",1960,5],
+  ["DEN","Broncos","Denver","AFC","West","Empower Field at Mile High",1960,3],
+  ["DET","Lions","Detroit","NFC","North","Ford Field",1930,0],
+  ["GB","Packers","Green Bay","NFC","North","Lambeau Field",1921,4],
+  ["HOU","Texans","Houston","AFC","South","NRG Stadium",2002,0],
+  ["IND","Colts","Indianapolis","AFC","South","Lucas Oil Stadium",1953,2],
+  ["JAX","Jaguars","Jacksonville","AFC","South","EverBank Stadium",1995,0],
+  ["KC","Chiefs","Kansas City","AFC","West","Arrowhead Stadium",1960,4],
+  ["LV","Raiders","Las Vegas","AFC","West","Allegiant Stadium",1960,3],
+  ["LAC","Chargers","Los Angeles","AFC","West","SoFi Stadium",1960,0],
+  ["LAR","Rams","Los Angeles","NFC","West","SoFi Stadium",1937,2],
+  ["MIA","Dolphins","Miami","AFC","East","Hard Rock Stadium",1966,2],
+  ["MIN","Vikings","Minnesota","NFC","North","U.S. Bank Stadium",1961,0],
+  ["NE","Patriots","New England","AFC","East","Gillette Stadium",1960,6],
+  ["NO","Saints","New Orleans","NFC","South","Caesars Superdome",1967,1],
+  ["NYG","Giants","New York","NFC","East","MetLife Stadium",1925,4],
+  ["NYJ","Jets","New York","AFC","East","MetLife Stadium",1960,1],
+  ["PHI","Eagles","Philadelphia","NFC","East","Lincoln Financial Field",1933,2],
+  ["PIT","Steelers","Pittsburgh","AFC","North","Acrisure Stadium",1933,6],
+  ["SF","49ers","San Francisco","NFC","West","Levi's Stadium",1946,5],
+  ["SEA","Seahawks","Seattle","NFC","West","Lumen Field",1976,2],
+  ["TB","Buccaneers","Tampa Bay","NFC","South","Raymond James Stadium",1976,2],
+  ["TEN","Titans","Tennessee","AFC","South","Nissan Stadium",1960,0],
+  ["WAS","Commanders","Washington","NFC","East","Northwest Stadium",1932,3]
+].map(r => ({ abbr: r[0], name: r[1], location: r[2], conference: r[3], division: r[4], stadium: r[5], first_season: r[6], super_bowls: r[7] }));
+
+const LEGENDS = [
+  // name, team (current franchise abbr), pos, number, first_year, last_year (null = still active)
+  ["Barry Sanders","DET","RB",20,1989,1998],["Calvin Johnson","DET","WR",81,2007,2015],["Ndamukong Suh","DET","DT",90,2010,2014],
+  ["Jerry Rice","SF","WR",80,1985,2000],["Joe Montana","SF","QB",16,1979,1992],
+  ["Tom Brady","NE","QB",12,2000,2019],["Vince Wilfork","NE","NT",75,2004,2014],["Richard Seymour","NE","DE",93,2001,2008],
+  ["Peyton Manning","IND","QB",18,1998,2011],["Walter Payton","CHI","RB",34,1975,1987],
+  ["Lawrence Taylor","NYG","LB",56,1981,1993],["Michael Strahan","NYG","DE",92,1993,2007],["Reggie White","PHI","DE",92,1985,1992],
+  ["Jim Brown","CLE","RB",32,1957,1965],["Emmitt Smith","DAL","RB",22,1990,2002],["Dan Marino","MIA","QB",13,1983,1999],
+  ["Brett Favre","GB","QB",4,1992,2007],["Aaron Donald","LAR","DT",99,2014,2023],["Kurt Warner","LAR","QB",13,1998,2003],
+  ["Marshall Faulk","LAR","RB",28,1999,2005],["Deacon Jones","LAR","DE",75,1961,1971],
+  ["Ray Lewis","BAL","LB",52,1996,2012],["Ed Reed","BAL","S",20,2002,2012],["Haloti Ngata","BAL","DT",92,2006,2014],
+  ["Troy Polamalu","PIT","S",43,2003,2014],["Ben Roethlisberger","PIT","QB",7,2004,2021],["Joe Greene","PIT","DT",75,1969,1981],
+  ["Drew Brees","NO","QB",9,2006,2020],["Adrian Peterson","MIN","RB",28,2007,2016],["Randy Moss","MIN","WR",84,1998,2004],
+  ["John Randle","MIN","DT",93,1990,2000],["Alan Page","MIN","DT",88,1967,1978],["Steve Largent","SEA","WR",80,1976,1989],
+  ["Earl Campbell","TEN","RB",34,1978,1984],["Warren Moon","TEN","QB",1,1984,1993],["Steve McNair","TEN","QB",9,1997,2005],
+  ["Eddie George","TEN","RB",27,1996,2003],["Derrick Henry","TEN","RB",22,2016,2023],
+  ["Derrick Thomas","KC","LB",58,1989,1999],["Tony Gonzalez","KC","TE",88,1997,2008],["Patrick Mahomes","KC","QB",15,2017,null],
+  ["Travis Kelce","KC","TE",87,2013,null],["Chris Jones","KC","DT",95,2016,null],
+  ["Josh Allen","BUF","QB",17,2018,null],["Jim Kelly","BUF","QB",12,1986,1996],["Bruce Smith","BUF","DE",78,1985,1999],["Thurman Thomas","BUF","RB",34,1988,1999],
+  ["LaDainian Tomlinson","LAC","RB",21,2001,2009],["Junior Seau","LAC","LB",55,1990,2002],["Dan Fouts","LAC","QB",14,1973,1987],
+  ["John Elway","DEN","QB",7,1983,1998],["Terrell Davis","DEN","RB",30,1995,2001],["Von Miller","DEN","LB",58,2011,2021],
+  ["Julius Peppers","CAR","DE",90,2002,2009],["Cam Newton","CAR","QB",1,2011,2019],["Luke Kuechly","CAR","LB",59,2012,2019],
+  ["Michael Vick","ATL","QB",7,2001,2006],["Julio Jones","ATL","WR",11,2011,2020],["Matt Ryan","ATL","QB",2,2008,2021],
+  ["Larry Fitzgerald","ARI","WR",11,2004,2020],["Warren Sapp","TB","DT",99,1995,2003],["J.J. Watt","HOU","DE",99,2011,2020]
+].map(r => ({ name: r[0], team: r[1], pos: r[2], number: r[3], first_year: r[4], last_year: r[5] }));
+
+/* Trivia kickoff: spin a random team, ask one question built from the data above. */
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+function uniq(a) { return [...new Set(a)]; }
+
+function makeTrivia() {
+  const t = pick(TEAMS);
+  const full = t.location + " " + t.name;
+  const divName = x => x.conference + " " + x.division;
+  const kind = pick(["div", "stadium", "sb", "mate", "conf"]);
+  let q, answer, options, fact, sql;
+  if (kind === "div") {
+    q = "Which division do the " + full + " play in?";
+    answer = divName(t);
+    options = shuffle([answer, ...shuffle(uniq(TEAMS.map(divName)).filter(d => d !== answer)).slice(0, 3)]);
+    sql = "SELECT conference, division FROM teams WHERE name = '" + t.name + "';";
+  } else if (kind === "stadium") {
+    q = "Where do the " + full + " play their home games?";
+    answer = t.stadium;
+    options = shuffle([answer, ...shuffle(uniq(TEAMS.map(x => x.stadium)).filter(s => s !== answer)).slice(0, 3)]);
+    sql = "SELECT stadium FROM teams WHERE name = '" + t.name + "';";
+  } else if (kind === "sb") {
+    const other = pick(TEAMS.filter(x => x.abbr !== t.abbr && x.super_bowls !== t.super_bowls));
+    q = "Who has more Super Bowl wins: the " + t.name + " or the " + other.name + "?";
+    answer = t.super_bowls > other.super_bowls ? t.name : other.name;
+    options = shuffle([t.name, other.name]);
+    fact = t.name + " " + t.super_bowls + ", " + other.name + " " + other.super_bowls + " (through Super Bowl LX).";
+    sql = "SELECT name, super_bowls FROM teams WHERE name IN ('" + t.name + "', '" + other.name + "') ORDER BY super_bowls DESC;";
+  } else if (kind === "mate") {
+    const mates = TEAMS.filter(x => x.abbr !== t.abbr && x.conference === t.conference && x.division === t.division);
+    const m = pick(mates);
+    q = "Which of these teams is in the same division as the " + full + "?";
+    answer = m.location + " " + m.name;
+    const others = shuffle(TEAMS.filter(x => !(x.conference === t.conference && x.division === t.division))).slice(0, 3).map(x => x.location + " " + x.name);
+    options = shuffle([answer, ...others]);
+    fact = "The " + divName(t) + ": " + [t, ...mates].map(x => x.name).join(", ") + ".";
+    sql = "SELECT name FROM teams WHERE conference = '" + t.conference + "' AND division = '" + t.division + "';";
+  } else {
+    q = "Which conference are the " + full + " in?";
+    answer = t.conference;
+    options = ["AFC", "NFC"];
+    sql = "SELECT conference FROM teams WHERE name = '" + t.name + "';";
+  }
+  if (!fact) fact = full + ": " + divName(t) + ", " + t.stadium + ", " + t.super_bowls + " Super Bowl win" + (t.super_bowls === 1 ? "" : "s") + ", first season " + t.first_season + ".";
+  return { team: t, q, answer, options, fact, sql };
+}
+
+/* ===== Playbook.sql: SQLite adapter, database, drills ===== */
+const PLAYS = [
+  // id, quarter, down, distance, yard_line, play_type, yards, player, result  (fictional UNCP Braves game, example data)
+  [1,1,1,10,25,"run",4,"Boykin","gain"],[2,1,2,6,29,"pass",9,"Tate","first down"],[3,1,1,10,38,"run",2,"Boykin","gain"],
+  [4,1,2,8,40,"pass",0,"Okafor","incomplete"],[5,1,3,8,40,"pass",23,"Lynch","first down"],[6,1,1,10,63,"run",-2,"Price","loss"],
+  [7,1,2,12,61,"pass",11,"Tate","gain"],[8,1,3,1,72,"run",3,"Boykin","first down"],[9,1,1,10,75,"pass",25,"Okafor","touchdown"],
+  [10,1,1,10,20,"run",1,"Price","gain"],[11,1,2,9,21,"pass",0,"Tate","incomplete"],[12,1,3,9,21,"pass",-7,"Reyes","sack"],
+  [13,1,4,16,14,"punt",0,"Hale","punt"],
+  [14,2,1,10,30,"run",6,"Boykin","gain"],[15,2,2,4,36,"run",5,"Boykin","first down"],[16,2,1,10,41,"pass",14,"Lynch","first down"],
+  [17,2,1,10,55,"pass",0,"Okafor","interception"],[18,2,1,10,35,"run",3,"Price","gain"],[19,2,2,7,38,"pass",12,"Tate","first down"],
+  [20,2,1,10,50,"pass",0,"Tate","incomplete"],[21,2,2,10,50,"run",8,"Boykin","gain"],[22,2,3,2,58,"run",1,"Price","gain"],
+  [23,2,4,1,59,"run",2,"Boykin","first down"],[24,2,1,10,61,"pass",16,"Okafor","first down"],[25,2,1,10,77,"pass",0,"Lynch","incomplete"],
+  [26,2,2,10,77,"run",4,"Boykin","gain"],[27,2,3,6,81,"pass",0,"Tate","incomplete"],[28,2,4,6,81,"field goal",0,"Hale","field goal"],
+  [29,3,1,10,22,"run",7,"Boykin","gain"],[30,3,2,3,29,"run",-1,"Price","loss"],[31,3,3,4,28,"pass",6,"Lynch","first down"],
+  [32,3,1,10,34,"pass",41,"Okafor","first down"],[33,3,1,10,75,"run",3,"Boykin","gain"],[34,3,2,7,78,"run",22,"Boykin","touchdown"],
+  [35,3,1,10,18,"pass",0,"Tate","incomplete"],[36,3,2,10,18,"run",2,"Price","gain"],[37,3,3,8,20,"pass",-6,"Reyes","sack"],
+  [38,3,4,14,14,"punt",0,"Hale","punt"],
+  [39,4,1,10,40,"pass",9,"Tate","gain"],[40,4,2,1,49,"run",2,"Boykin","first down"],[41,4,1,10,51,"pass",0,"Okafor","incomplete"],
+  [42,4,2,10,51,"run",5,"Price","gain"],[43,4,3,5,56,"pass",5,"Lynch","first down"],[44,4,1,10,61,"run",-3,"Boykin","loss"],
+  [45,4,2,13,58,"pass",0,"Tate","incomplete"],[46,4,3,13,58,"pass",18,"Okafor","first down"],[47,4,1,10,76,"run",4,"Boykin","gain"],
+  [48,4,2,6,80,"pass",20,"Tate","touchdown"]
+];
+const ACCESS_LOG = [
+  // id, badge, door, hour (24h), granted (1 = let in, 0 = denied)  (example data)
+  [1,"coach_neely","film-room",6,1],[2,"cam","weight-room",6,1],[3,"cam","film-room",7,0],[4,"visitor_7","lobby",8,1],
+  [5,"visitor_7","server-room",8,0],[6,"visitor_7","server-room",8,0],[7,"trainer_kim","weight-room",9,1],[8,"equip_jay","equipment",9,1],
+  [9,"visitor_7","server-room",9,0],[10,"intern_lee","film-room",10,0],[11,"cam","film-room",10,0],[12,"coach_neely","server-room",11,1],
+  [13,"visitor_7","server-room",11,0],[14,"intern_lee","lobby",12,1],[15,"cam","weight-room",13,1],[16,"trainer_kim","film-room",14,1],
+  [17,"intern_lee","server-room",15,0],[18,"equip_jay","weight-room",15,1],[19,"visitor_7","film-room",16,0],[20,"cam","lobby",17,1],
+  [21,"intern_lee","server-room",18,0],[22,"coach_neely","film-room",19,1],[23,"intern_lee","server-room",20,0],[24,"trainer_kim","lobby",20,1]
+];
+const SCHEMA = [
+  { t: "teams", cols: "abbr, name, location, conference, division, stadium, first_season, super_bowls", desc: "All 32 NFL teams. super_bowls is wins through Super Bowl LX." },
+  { t: "legends", cols: "name, team, pos, number, first_year, last_year", desc: "62 all-time greats. team is the franchise abbr. last_year is NULL for active players." },
+  { t: "plays", cols: "id, quarter, down, distance, yard_line, play_type, yards, player, result", desc: "48 plays from one Braves game (example data). play_type: run, pass, punt, field goal." },
+  { t: "access_log", cols: "id, badge, door, hour, granted", desc: "Facility badge swipes (example data). granted is 1 or 0." }
+];
+const q = s => "'" + String(s).replace(/'/g, "''") + "'";
+const v = x => x === null ? "NULL" : typeof x === "number" ? x : q(x);
+const SEED_SQL =
+  "CREATE TABLE teams (abbr TEXT, name TEXT, location TEXT, conference TEXT, division TEXT, stadium TEXT, first_season INTEGER, super_bowls INTEGER);\n" +
+  "INSERT INTO teams VALUES " + TEAMS.map(t => "(" + [t.abbr, t.name, t.location, t.conference, t.division, t.stadium, t.first_season, t.super_bowls].map(v).join(",") + ")").join(",") + ";\n" +
+  "CREATE TABLE legends (name TEXT, team TEXT, pos TEXT, number INTEGER, first_year INTEGER, last_year INTEGER);\n" +
+  "INSERT INTO legends VALUES " + LEGENDS.map(l => "(" + [l.name, l.team, l.pos, l.number, l.first_year, l.last_year].map(v).join(",") + ")").join(",") + ";\n" +
+  "CREATE TABLE plays (id INTEGER, quarter INTEGER, down INTEGER, distance INTEGER, yard_line INTEGER, play_type TEXT, yards INTEGER, player TEXT, result TEXT);\n" +
+  "INSERT INTO plays VALUES " + PLAYS.map(r => "(" + r.map(v).join(",") + ")").join(",") + ";\n" +
+  "CREATE TABLE access_log (id INTEGER, badge TEXT, door TEXT, hour INTEGER, granted INTEGER);\n" +
+  "INSERT INTO access_log VALUES " + ACCESS_LOG.map(r => "(" + r.map(v).join(",") + ")").join(",") + ";";
+
+let SQLJS = null;
+function freshDb() { const db = new SQLJS.Database(); db.run(SEED_SQL); return db; }
+function execOne(db, sql) {
+  const sets = db.exec(sql);
+  if (!sets.length) return { columns: [], values: [] };
+  return sets[sets.length - 1];
+}
+const cellKey = x => x === null ? "\u0000NULL" : typeof x === "number" ? (Math.round(x * 1e6) / 1e6).toString() : String(x);
+function sameTables(got, exp, ordered) {
+  if (got.columns.length !== exp.columns.length) return false;
+  if (got.values.length !== exp.values.length) return false;
+  const rows = t => t.values.map(r => r.map(cellKey).join("\u0001"));
+  let a = rows(got), b = rows(exp);
+  if (!ordered) { a = a.slice().sort(); b = b.slice().sort(); }
+  return a.every((r, i) => r === b[i]);
+}
+function tableHtml(t, cap, max) {
+  max = max || 15;
+  if (!t.columns.length) return '<p class="tbl-cap">' + esc(cap) + ': the statement ran but returned no rows and no columns.</p>';
+  let h = '<p class="tbl-cap">' + esc(cap) + ' · ' + t.values.length + ' row' + (t.values.length === 1 ? "" : "s") + ' × ' + t.columns.length + ' column' + (t.columns.length === 1 ? "" : "s") + (t.values.length > max ? ' (showing first ' + max + ')' : '') + '</p>';
+  h += '<div class="tblwrap"><table class="res"><thead><tr>' + t.columns.map(c => '<th>' + esc(c) + '</th>').join("") + '</tr></thead><tbody>';
+  h += t.values.slice(0, max).map(r => '<tr>' + r.map(x => x === null ? '<td class="null">NULL</td>' : typeof x === "number" ? '<td class="num">' + esc(x) + '</td>' : '<td>' + esc(x) + '</td>').join("") + '</tr>').join("");
+  return h + '</tbody></table></div>';
+}
+
+const GAME = {
+  key: "sql", langName: "SQL", fileName: "play.sql", indent: "  ", indentAfter: /\($/,
+  exampleLabel: "Preview query", exampleHeading: "Preview: your result, not graded, no snap used",
+  editorHelp: "SQLite · Ctrl/⌘ + Enter previews · one SELECT per drill",
+  consoleTip: "Preview is free. Run your query, look at the rows, then snap. Nobody grades a walkthrough.",
+  starter(c) { return c.starter || "SELECT \n"; },
+  examplesHtml(c) {
+    if (!SQLJS) return "";
+    try {
+      const db = freshDb(); const exp = execOne(db, c.expect); db.close();
+      const camp = c.tier === "camp" || c.tier === "run";
+      return '<div class="examples"><div>Expected result: <b>' + exp.values.length + ' row' + (exp.values.length === 1 ? "" : "s") + ' × ' + exp.columns.length + ' column' + (exp.columns.length === 1 ? "" : "s") + '</b>' + (camp ? ' · columns: <b>' + esc(exp.columns.join(", ")) + '</b>' : '') + (c.ordered ? ' · <b>order matters</b>' : ' · any row order') + '</div></div>';
+    } catch (e) { return ""; }
+  },
+  ready: new Promise((res, rej) => {
+    let n = 0; const tick = () => {
+      if (window.initSqlJs) initSqlJs().then(S => { SQLJS = S; renderSchema(); res(); }, rej);
+      else if (++n > 200) rej(new Error("sqljs")); else setTimeout(tick, 100);
+    }; tick();
+  }),
+  triviaExtra(t) { return ' <span style="display:block;margin-top:6px">In SQL that answer is: <code>' + esc(t.sql) + '</code></span>'; },
+  run(code, c, preview) {
+    return new Promise(resolve => {
+      if (!SQLJS) return resolve({ error: "The SQL engine is still loading. Give it a second and try again." });
+      const db = freshDb();
+      let got;
+      try { got = execOne(db, code); }
+      catch (e) { db.close(); return resolve({ error: e.message, syntax: true }); }
+      if (preview) { db.close(); return resolve({ table: got }); }
+      const exp = execOne(db, c.expect); db.close();
+      const results = [
+        { ok: true, label: "Query runs without errors" },
+        { ok: got.columns.length === exp.columns.length, label: "Returns " + exp.columns.length + " column" + (exp.columns.length === 1 ? "" : "s"), detail: got.columns.length === exp.columns.length ? "" : "got " + got.columns.length },
+        { ok: got.values.length === exp.values.length, label: "Returns " + exp.values.length + " row" + (exp.values.length === 1 ? "" : "s"), detail: got.values.length === exp.values.length ? "" : "got " + got.values.length },
+        { ok: sameTables(got, exp, c.ordered), label: c.ordered ? "Values match, in the right order" : "Values match (any row order)" }
+      ];
+      resolve({ table: got, expected: exp, results, passed: results.every(r => r.ok) });
+    });
+  },
+  resultHtml(c, res, preview) {
+    let h = "";
+    if (res.error) {
+      h += '<div class="err">Flag on the play: ' + esc(res.error) + '<small>SQLite error messages point at the word it got stuck on. Check spelling, commas between columns, and quotes around text values.</small></div>';
+      return h;
+    }
+    if (res.results) {
+      const passed = res.results.filter(r => r.ok).length;
+      h += '<div class="eyebrow" style="margin-top:14px">' + passed + ' of ' + res.results.length + ' checks passing</div><div class="tests">' +
+        res.results.map(r => '<div class="t ' + (r.ok ? "ok" : "no") + '"><span class="g">' + (r.ok ? "✓" : "✗") + '</span><div class="body">' + esc(r.label) + (r.detail ? '<div class="exp">' + esc(r.detail) + '</div>' : '') + '</div></div>').join("") + '</div>';
+    }
+    h += tableHtml(res.table, "Your result");
+    if (res.expected && !res.passed) h += tableHtml(res.expected, "Expected result", 8);
+    return h;
+  }
+};
+function renderSchema() {
+  const el = document.getElementById("schema"); if (!el) return;
+  el.innerHTML = SCHEMA.map(s => '<div><b>' + s.t + '</b><span>' + esc(s.cols) + '</span><span style="font-family:var(--f-body);font-size:12px;margin-top:4px">' + esc(s.desc) + '</span></div>').join("");
+}
+
+const CH = [
+  /* ================= FUNDAMENTALS (Training Camp) ================= */
+  { id: "c1", tier: "camp", concept: "Tables, rows & SELECT *", title: "Three-Point Stance", starter: "SELECT * FROM \n",
+    teach: {
+      what: "A database is a set of <b>tables</b>. A table is rows and columns, like a spreadsheet: each <b>row</b> is one record, each <b>column</b> is one field. <code>SELECT</code> asks for data, <code>*</code> means every column, <code>FROM</code> names the table. End statements with a semicolon (optional here, required in most tools).",
+      football: "The roster sheet taped to the locker room wall. One row per player, columns for name, number, position. <code>SELECT * FROM roster</code> is pulling the whole sheet off the wall and looking at all of it.",
+      example: "SELECT * FROM legends;\n-- every column, every row, in whatever order the table stores them"
+    },
+    prompt: "Pull the whole <code>teams</code> table: every column, every row.",
+    expect: "SELECT * FROM teams", ordered: false,
+    hint: "<code>SELECT * FROM teams</code>. Capitalizing keywords is convention, not a rule; <code>select * from teams</code> works too.",
+    note: "Table and column names in this game are lowercase. Text values in SQL go in single quotes (<code>'AFC'</code>); double quotes mean a column name, which trips up a lot of people coming from Python. <code>SELECT *</code> is great for exploring and bad in real code: name your columns so the result doesn't change when someone adds one.",
+    sol: "SELECT * FROM teams;",
+    walk: [["SELECT *", "Give me every column."], ["FROM teams", "...out of the table called teams."]] },
+
+  { id: "c2", tier: "camp", concept: "Choosing columns", title: "Name and Stadium", starter: "SELECT \nFROM teams\n",
+    teach: {
+      what: "List the columns you want after <code>SELECT</code>, separated by commas, in the order you want them back. Fewer columns means less data moving around and a result that says exactly what you asked for.",
+      football: "You don't need the whole roster sheet to make nameplates; you need last name and number. Ask for those two columns and nothing else.",
+      example: "SELECT name, number FROM legends;\nSELECT number, name FROM legends;   -- same data, columns swapped"
+    },
+    prompt: "Return just the <code>name</code> and <code>stadium</code> of every team, in that column order.",
+    expect: "SELECT name, stadium FROM teams", ordered: false,
+    hint: "<code>SELECT name, stadium FROM teams</code>. The comma between columns is the part everyone forgets.",
+    note: "The result of a query is itself a table: columns you named, rows that matched. Every fancier query later is still just shaping that output table.",
+    sol: "SELECT name, stadium FROM teams;",
+    walk: [["SELECT name, stadium", "Two columns, comma separated, in this order."], ["FROM teams", "Source table."]] },
+
+  { id: "c3", tier: "camp", concept: "WHERE (filtering rows)", title: "AFC Only", starter: "SELECT name\nFROM teams\nWHERE \n",
+    teach: {
+      what: "<code>WHERE</code> keeps only the rows where a condition is true. Compare with <code>=</code>, <code>&lt;&gt;</code> (not equal), <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>. Text values go in single quotes and are case-sensitive here: <code>'AFC'</code> is not <code>'afc'</code>.",
+      football: "<code>SELECT</code> picks columns; <code>WHERE</code> picks rows. Columns are what's on the card, rows are which players. \"Give me the names of everyone on defense\" is a SELECT on name with a WHERE on side.",
+      example: "SELECT name FROM legends WHERE pos = 'DT';\nSELECT name FROM teams WHERE super_bowls > 4;"
+    },
+    prompt: "Return the <code>name</code> of every team in the AFC.",
+    expect: "SELECT name FROM teams WHERE conference = 'AFC'", ordered: false,
+    hint: "<code>WHERE conference = 'AFC'</code>. Single quotes around AFC.",
+    note: "A single <code>=</code> is the comparison in SQL (there's no assignment to confuse it with). Forgetting the quotes, <code>WHERE conference = AFC</code>, makes SQLite look for a column called AFC and fail with \"no such column\", which is a useful error to recognize.",
+    sol: "SELECT name FROM teams WHERE conference = 'AFC';",
+    walk: [["WHERE conference = 'AFC'", "Keep a row only if its conference column holds exactly the text AFC."]] },
+
+  { id: "c4", tier: "camp", concept: "AND / OR", title: "NFC South", starter: "SELECT name\nFROM teams\nWHERE \n",
+    teach: {
+      what: "Combine conditions with <code>AND</code> (both must be true) and <code>OR</code> (either). <code>AND</code> binds tighter than <code>OR</code>, so use parentheses when mixing them: <code>WHERE a = 1 AND (b = 2 OR b = 3)</code>.",
+      football: "Scouting filters stack. Linemen over 300 pounds AND under 22 years old. Two conditions, both required. OR widens the net; AND narrows it.",
+      example: "SELECT name FROM legends WHERE pos = 'DT' AND first_year >= 2010;\nSELECT name FROM legends WHERE pos = 'DT' OR pos = 'NT';"
+    },
+    prompt: "Return the <code>name</code> of every team in the NFC South. (Division values are just <code>'South'</code>, so you need two conditions.)",
+    expect: "SELECT name FROM teams WHERE conference = 'NFC' AND division = 'South'", ordered: false,
+    hint: "<code>WHERE conference = 'NFC' AND division = 'South'</code>",
+    note: "Four rows is the right answer: every division has exactly four teams. That kind of sanity check (\"do I know roughly how many rows to expect?\") catches more SQL mistakes than any tool.",
+    sol: "SELECT name FROM teams WHERE conference = 'NFC' AND division = 'South';" },
+
+  { id: "c5", tier: "camp", concept: "ORDER BY", title: "Ring Count", starter: "SELECT name, super_bowls\nFROM teams\nORDER BY \n",
+    teach: {
+      what: "<code>ORDER BY column</code> sorts the result. <code>ASC</code> (default) is smallest first, <code>DESC</code> is biggest first. List more than one column to break ties: <code>ORDER BY super_bowls DESC, name ASC</code>. Without ORDER BY, row order is whatever the database feels like.",
+      football: "Standings are sorted, with tiebreakers. Most wins first, then head to head, then division record. ORDER BY is that list of tiebreakers, read left to right.",
+      example: "SELECT name, first_season FROM teams ORDER BY first_season;          -- oldest first\nSELECT name, number FROM legends ORDER BY number DESC, name ASC;"
+    },
+    prompt: "Return <code>name</code> and <code>super_bowls</code> for every team, most Super Bowl wins first. Break ties alphabetically by name.",
+    expect: "SELECT name, super_bowls FROM teams ORDER BY super_bowls DESC, name ASC", ordered: true,
+    hint: "<code>ORDER BY super_bowls DESC, name ASC</code>. Two sort keys, comma separated.",
+    note: "This is the first drill where order matters for the grade. If you only sort by super_bowls, the teams tied at 2 (and at 0) come back in storage order, which the checker treats as wrong. Real reports need the full tiebreak too, or the output shuffles between runs.",
+    sol: "SELECT name, super_bowls\nFROM teams\nORDER BY super_bowls DESC, name ASC;",
+    walk: [["ORDER BY super_bowls DESC", "Primary sort: most titles at the top."], [", name ASC", "Tiebreaker: alphabetical among equal counts."]] },
+
+  { id: "c6", tier: "camp", concept: "LIMIT", title: "Original Five", starter: "SELECT name, first_season\nFROM teams\nORDER BY \nLIMIT \n",
+    teach: {
+      what: "<code>LIMIT n</code> keeps only the first n rows of the result. It runs after ORDER BY, so \"top 5\" is always sort first, then limit. Without a sort, LIMIT gives you 5 arbitrary rows.",
+      football: "Top-5 lists. You can't name the five oldest franchises until you've lined them all up by founding year. Sort, then cut the list.",
+      example: "SELECT player, yards FROM plays ORDER BY yards DESC LIMIT 3;   -- three longest plays"
+    },
+    prompt: "Return <code>name</code> and <code>first_season</code> of the five oldest franchises, oldest first. Break ties alphabetically.",
+    expect: "SELECT name, first_season FROM teams ORDER BY first_season ASC, name ASC LIMIT 5", ordered: true,
+    hint: "<code>ORDER BY first_season ASC, name ASC LIMIT 5</code>",
+    note: "The Cardinals and Bears both list 1920, which is why the name tiebreaker matters even here. SQL clause order is fixed: SELECT, FROM, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. Memorize that line; it's the skeleton of every query you'll ever write.",
+    sol: "SELECT name, first_season\nFROM teams\nORDER BY first_season ASC, name ASC\nLIMIT 5;" },
+
+  { id: "c7", tier: "camp", concept: "COUNT", title: "Count the Tackles", starter: "SELECT COUNT(*)\nFROM legends\nWHERE \n",
+    teach: {
+      what: "<code>COUNT(*)</code> returns how many rows matched. It's an <b>aggregate function</b>: it collapses many rows into one number. Other aggregates: <code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>. With a WHERE, you count only the matching rows.",
+      football: "How many defensive tackles are on the legends list? Don't read the names; count the rows that pass the filter. One number back.",
+      example: "SELECT COUNT(*) FROM teams;                          -- 32\nSELECT COUNT(*) FROM teams WHERE super_bowls = 0;    -- the ringless"
+    },
+    prompt: "How many legends played <code>DT</code>? Return a single number.",
+    expect: "SELECT COUNT(*) FROM legends WHERE pos = 'DT'", ordered: false,
+    hint: "<code>SELECT COUNT(*) FROM legends WHERE pos = 'DT'</code>",
+    note: "The answer comes back as one row with one column. You can name that column with <code>AS</code>: <code>SELECT COUNT(*) AS tackles FROM ...</code>. Aliases don't affect grading here but make results readable, and they're required when you reference the value later.",
+    sol: "SELECT COUNT(*) FROM legends WHERE pos = 'DT';" },
+
+  { id: "c8", tier: "camp", concept: "SUM & AVG", title: "Ground Game", starter: "SELECT SUM(yards)\nFROM plays\nWHERE \n",
+    teach: {
+      what: "<code>SUM(column)</code> adds a column up; <code>AVG(column)</code> averages it. Both ignore NULLs. Pair them with WHERE to total only the rows you care about. <code>ROUND(AVG(x), 1)</code> trims the decimals.",
+      football: "Total rushing yards is SUM(yards) over the run plays. Yards per carry is AVG(yards) over the same rows. The stat crew's whole job is aggregates with a WHERE.",
+      example: "SELECT AVG(yards) FROM plays WHERE play_type = 'pass';\nSELECT SUM(super_bowls) FROM teams WHERE conference = 'AFC';"
+    },
+    prompt: "Return the total rushing yards in the game: the <code>SUM</code> of <code>yards</code> for plays where <code>play_type</code> is <code>'run'</code>.",
+    expect: "SELECT SUM(yards) FROM plays WHERE play_type = 'run'", ordered: false,
+    hint: "<code>SELECT SUM(yards) FROM plays WHERE play_type = 'run'</code>",
+    note: "Negative yards (losses) count against the sum automatically, which is exactly what the stat sheet does. Note the value is <code>'run'</code> in lowercase; text matching is exact.",
+    sol: "SELECT SUM(yards) FROM plays WHERE play_type = 'run';" },
+
+  { id: "c9", tier: "camp", concept: "GROUP BY", title: "Play Call Breakdown", starter: "SELECT play_type, COUNT(*)\nFROM plays\nGROUP BY \n",
+    teach: {
+      what: "<code>GROUP BY column</code> splits the rows into buckets, one per distinct value, and runs the aggregate once per bucket. Every column in SELECT must be either the grouping column or wrapped in an aggregate.",
+      football: "The self-scout report: how many runs, how many passes, how many punts? Pile the plays by type, count each pile. GROUP BY makes the piles; COUNT counts them.",
+      example: "SELECT pos, COUNT(*) FROM legends GROUP BY pos;\nSELECT player, SUM(yards) FROM plays GROUP BY player;"
+    },
+    prompt: "Return each <code>play_type</code> and how many plays of that type there were.",
+    expect: "SELECT play_type, COUNT(*) FROM plays GROUP BY play_type", ordered: false,
+    hint: "<code>SELECT play_type, COUNT(*) FROM plays GROUP BY play_type</code>",
+    note: "GROUP BY is the single most useful idea in SQL after WHERE. Any question shaped like \"X per Y\" (yards per player, titles per division, failed logins per user) is GROUP BY Y with an aggregate on X.",
+    sol: "SELECT play_type, COUNT(*)\nFROM plays\nGROUP BY play_type;",
+    walk: [["GROUP BY play_type", "One output row per distinct play_type."], ["COUNT(*)", "Counted separately inside each group."]] },
+
+  { id: "c10", tier: "camp", concept: "DISTINCT", title: "Positions Represented", starter: "SELECT DISTINCT \nFROM legends\n",
+    teach: {
+      what: "<code>SELECT DISTINCT column</code> returns each value once, with duplicates removed. It's the quick way to ask \"what values exist in this column?\"",
+      football: "Which positions are on the legends list? You don't want 62 rows with QB repeated 17 times, you want each position once.",
+      example: "SELECT DISTINCT conference FROM teams;   -- AFC, NFC\nSELECT DISTINCT result FROM plays;"
+    },
+    prompt: "Return each distinct <code>pos</code> that appears in <code>legends</code>, once each.",
+    expect: "SELECT DISTINCT pos FROM legends", ordered: false,
+    hint: "<code>SELECT DISTINCT pos FROM legends</code>",
+    note: "<code>GROUP BY pos</code> with no aggregate gives the same list, and sometimes you'll see it written that way. DISTINCT says what you mean. On a new database, DISTINCT on a few columns is how you learn what the data actually contains before you trust it.",
+    sol: "SELECT DISTINCT pos FROM legends;" },
+
+  { id: "c11", tier: "camp", concept: "NULL", title: "Still Playing", starter: "SELECT name\nFROM legends\nWHERE \n",
+    teach: {
+      what: "<b>NULL</b> means \"no value\" (unknown, not applicable, not yet). It is not 0 and not an empty string, and <code>= NULL</code> never matches anything. Test for it with <code>IS NULL</code> or <code>IS NOT NULL</code>. Aggregates skip NULLs; math with a NULL gives NULL.",
+      football: "An active player has no final season yet. You can't write 0 (that would be a career of zero years) and you can't write 2026 (not true yet). The honest value is \"not yet\": NULL.",
+      example: "SELECT name FROM legends WHERE last_year IS NOT NULL;   -- retired\nSELECT name FROM legends WHERE last_year = NULL;        -- WRONG: matches nothing"
+    },
+    prompt: "Return the <code>name</code> of every legend who is still active, meaning <code>last_year</code> is NULL.",
+    expect: "SELECT name FROM legends WHERE last_year IS NULL", ordered: false,
+    hint: "<code>WHERE last_year IS NULL</code>. Not <code>= NULL</code>.",
+    note: "NULL handling is where a lot of real-world bugs live: a report that silently drops rows, an average that's higher than it should be because blanks were skipped. When a column can be NULL, decide on purpose what you want to happen to those rows.",
+    sol: "SELECT name FROM legends WHERE last_year IS NULL;" },
+
+  { id: "c12", tier: "camp", concept: "Expressions & aliases", title: "Years of Service", starter: "SELECT name, \nFROM legends\nWHERE team = 'TEN'\n",
+    teach: {
+      what: "You can do math in the SELECT list: <code>last_year - first_year + 1</code>. Name the result with <code>AS seasons</code> so the column has a readable header. Aliases can be used in ORDER BY.",
+      football: "The Titans' legends and how many seasons each one gave the franchise. The data stores first and last year; the number you want is computed on the way out.",
+      example: "SELECT name, 100 - yard_line AS to_goal FROM plays;\nSELECT name, number * 2 AS doubled FROM legends;"
+    },
+    prompt: "For every legend whose <code>team</code> is <code>'TEN'</code>, return <code>name</code> and the number of seasons (<code>last_year - first_year + 1</code>) with the alias <code>seasons</code>.",
+    expect: "SELECT name, last_year - first_year + 1 AS seasons FROM legends WHERE team = 'TEN'", ordered: false,
+    hint: "<code>SELECT name, last_year - first_year + 1 AS seasons FROM legends WHERE team = 'TEN'</code>",
+    note: "The +1 is the fencepost: a player whose first and last years are both 1990 played one season, not zero. Camp is over. From here on, every drill is these clauses in new combinations.",
+    sol: "SELECT name, last_year - first_year + 1 AS seasons\nFROM legends\nWHERE team = 'TEN';" },
+
+  /* ================= RUN (easy) ================= */
+  { id: "r1", tier: "run", concept: "LIKE (pattern matching)", title: "Starts with J",
+    teach: { what: "<code>LIKE</code> matches text patterns. <code>%</code> stands for any run of characters, <code>_</code> for exactly one. <code>'J%'</code> is \"starts with J\"; <code>'%Field%'</code> is \"contains Field\".", football: "Scanning the roster for every name starting with a letter, the way the PA announcer's cheat sheet is organized.", example: "SELECT name FROM teams WHERE stadium LIKE '%Field%';\nSELECT name FROM legends WHERE name LIKE '% Smith';" },
+    prompt: "Return the <code>name</code> of every legend whose name starts with <code>J</code>.",
+    expect: "SELECT name FROM legends WHERE name LIKE 'J%'", ordered: false,
+    hint: "<code>WHERE name LIKE 'J%'</code>",
+    note: "In SQLite, LIKE ignores case for plain letters, so <code>'j%'</code> would also work here; other databases differ. Leading wildcards (<code>'%x'</code>) are slow on big tables because the database can't use an index; worth knowing before you put one in a production report.",
+    sol: "SELECT name FROM legends WHERE name LIKE 'J%';" },
+
+  { id: "r2", tier: "run", concept: "BETWEEN", title: "Nineties Debuts",
+    teach: { what: "<code>BETWEEN a AND b</code> is shorthand for <code>&gt;= a AND &lt;= b</code>. Both ends are included.", football: "Players who broke in during the nineties: first year from 1990 through 1999, inclusive on both ends.", example: "SELECT id FROM plays WHERE yards BETWEEN 10 AND 19;" },
+    prompt: "Return <code>name</code> and <code>first_year</code> for legends whose first year was in the 1990s (1990 through 1999).",
+    expect: "SELECT name, first_year FROM legends WHERE first_year BETWEEN 1990 AND 1999", ordered: false,
+    hint: "<code>WHERE first_year BETWEEN 1990 AND 1999</code>",
+    note: "Inclusive bounds trip people up with dates and decimals: BETWEEN '2026-01-01' AND '2026-01-31' misses anything stamped on the 31st after midnight. For whole-number years it's exactly right.",
+    sol: "SELECT name, first_year\nFROM legends\nWHERE first_year BETWEEN 1990 AND 1999;" },
+
+  { id: "r3", tier: "run", concept: "IN (lists)", title: "Three-Team Spin",
+    teach: { what: "<code>IN (a, b, c)</code> matches any value in the list. It replaces a chain of ORs and reads like the question you're asking.", football: "The trivia wheel landed on three teams; pull their divisions in one query instead of three.", example: "SELECT name FROM legends WHERE pos IN ('DT', 'NT', 'DE');   -- the whole D-line" },
+    prompt: "Return <code>name</code>, <code>conference</code> and <code>division</code> for the teams whose <code>abbr</code> is <code>'TEN'</code>, <code>'KC'</code> or <code>'SEA'</code>.",
+    expect: "SELECT name, conference, division FROM teams WHERE abbr IN ('TEN', 'KC', 'SEA')", ordered: false,
+    hint: "<code>WHERE abbr IN ('TEN', 'KC', 'SEA')</code>",
+    note: "IN also accepts a subquery instead of a literal list, which you'll use in the Pass tier. <code>NOT IN</code> excludes; be careful with it if the list could contain NULL, because then it matches nothing at all.",
+    sol: "SELECT name, conference, division\nFROM teams\nWHERE abbr IN ('TEN', 'KC', 'SEA');" },
+
+  { id: "r4", tier: "run", concept: "MAX & MIN", title: "Longest and Worst",
+    teach: { what: "<code>MAX(column)</code> and <code>MIN(column)</code> are aggregates for the biggest and smallest value. You can return both in one query; they collapse to a single row.", football: "Longest play of the day and the worst loss, side by side on the postgame sheet.", example: "SELECT MAX(super_bowls), MIN(first_season) FROM teams;" },
+    prompt: "Return the longest play and the biggest loss in one row: <code>MAX(yards)</code> and <code>MIN(yards)</code> from <code>plays</code>.",
+    expect: "SELECT MAX(yards), MIN(yards) FROM plays", ordered: false,
+    hint: "<code>SELECT MAX(yards), MIN(yards) FROM plays</code>",
+    note: "MAX tells you the value, not who did it. Putting a non-aggregated column next to MAX (<code>SELECT player, MAX(yards)</code>) happens to work in SQLite but is undefined in most databases. The honest way to get the player is ORDER BY yards DESC LIMIT 1, next drill.",
+    sol: "SELECT MAX(yards), MIN(yards) FROM plays;" },
+
+  { id: "r5", tier: "run", concept: "Top-N with ties", title: "Three Longest Passes",
+    teach: { what: "Filter, sort with a tiebreaker, limit. The tiebreaker (here <code>id</code>) makes the result stable so two identical plays always come back in the same order.", football: "The three longest completions of the game. If two went for the same yardage, the earlier play lists first.", example: "SELECT player, yards FROM plays WHERE play_type = 'run' ORDER BY yards DESC, id ASC LIMIT 3;" },
+    prompt: "Return <code>id</code>, <code>player</code> and <code>yards</code> of the three longest pass plays. Longest first; ties broken by lower <code>id</code> first.",
+    expect: "SELECT id, player, yards FROM plays WHERE play_type = 'pass' ORDER BY yards DESC, id ASC LIMIT 3", ordered: true,
+    hint: "<code>WHERE play_type = 'pass' ORDER BY yards DESC, id ASC LIMIT 3</code>",
+    note: "Every top-N query needs a full tiebreak or your dashboard will flicker between runs for no reason anyone can explain. A unique column like <code>id</code> as the last sort key fixes it permanently.",
+    sol: "SELECT id, player, yards\nFROM plays\nWHERE play_type = 'pass'\nORDER BY yards DESC, id ASC\nLIMIT 3;" },
+
+  { id: "r6", tier: "run", concept: "GROUP BY + ORDER BY alias", title: "Legends per Franchise",
+    teach: { what: "Group, count, then sort by the count. Give the count an alias and sort by the alias. Add a second sort key so ties are deterministic.", football: "Which franchises put the most players on the legends list? Pile by team, count each pile, biggest pile first, alphabetical among ties.", example: "SELECT pos, COUNT(*) AS n FROM legends GROUP BY pos ORDER BY n DESC, pos ASC;" },
+    prompt: "Return <code>team</code> and the number of legends on it (alias <code>legends</code>), most first, ties alphabetical by team.",
+    expect: "SELECT team, COUNT(*) AS legends FROM legends GROUP BY team ORDER BY legends DESC, team ASC", ordered: true,
+    hint: "<code>GROUP BY team ORDER BY legends DESC, team ASC</code>",
+    note: "Sorting by an alias works because ORDER BY runs after SELECT. WHERE runs before SELECT, which is why you can't use an alias in WHERE. The clause order from camp isn't just syntax; it's roughly the order the database does the work.",
+    sol: "SELECT team, COUNT(*) AS legends\nFROM legends\nGROUP BY team\nORDER BY legends DESC, team ASC;" },
+
+  /* ================= SHORT PASS (medium) ================= */
+  { id: "p1", tier: "pass", concept: "AVG per group, rounded", title: "Yards per Play Type",
+    teach: { what: "GROUP BY with AVG, wrapped in ROUND. Filter to the rows that make sense to average (runs and passes, not punts) with WHERE before grouping.", football: "Yards per rush vs. yards per pass attempt, the two numbers every offensive coordinator looks at first.", example: "SELECT player, ROUND(AVG(yards), 1) AS ypp FROM plays GROUP BY player;" },
+    prompt: "For <code>'run'</code> and <code>'pass'</code> plays only, return <code>play_type</code> and the average yards rounded to 1 decimal with the alias <code>avg_yards</code>.",
+    expect: "SELECT play_type, ROUND(AVG(yards), 1) AS avg_yards FROM plays WHERE play_type IN ('run', 'pass') GROUP BY play_type", ordered: false,
+    hint: "<code>WHERE play_type IN ('run', 'pass') GROUP BY play_type</code>, with <code>ROUND(AVG(yards), 1)</code> in the select.",
+    note: "WHERE filters rows going into the groups. HAVING (next drill) filters the groups coming out. Mixing them up is the most common GROUP BY mistake.",
+    sol: "SELECT play_type, ROUND(AVG(yards), 1) AS avg_yards\nFROM plays\nWHERE play_type IN ('run', 'pass')\nGROUP BY play_type;" },
+
+  { id: "p2", tier: "pass", concept: "HAVING", title: "Deep Position Groups",
+    teach: { what: "<code>HAVING</code> filters groups after aggregation, using the aggregate itself: <code>HAVING COUNT(*) &gt;= 5</code>. WHERE can't do that because the count doesn't exist yet when WHERE runs.", football: "Which position groups have at least five legends? You have to count each pile before you can ask if the pile is big enough.", example: "SELECT team, COUNT(*) FROM legends GROUP BY team HAVING COUNT(*) >= 3;" },
+    prompt: "Return <code>pos</code> and the count of legends at that position (alias <code>n</code>), but only positions with 5 or more.",
+    expect: "SELECT pos, COUNT(*) AS n FROM legends GROUP BY pos HAVING COUNT(*) >= 5", ordered: false,
+    hint: "<code>GROUP BY pos HAVING COUNT(*) &gt;= 5</code>",
+    note: "Rule of thumb: conditions on raw columns go in WHERE, conditions on aggregates go in HAVING. Doing both in one query is normal: WHERE narrows the input, HAVING narrows the output.",
+    sol: "SELECT pos, COUNT(*) AS n\nFROM legends\nGROUP BY pos\nHAVING COUNT(*) >= 5;" },
+
+  { id: "p3", tier: "pass", concept: "JOIN", title: "Where the Big Men Played",
+    teach: { what: "<code>JOIN</code> combines rows from two tables where a condition links them: <code>legends.team = teams.abbr</code>. Give tables short aliases (<code>legends l</code>) and prefix columns with them so the database knows which table's <code>name</code> you mean.", football: "The legends table knows a player's team as an abbreviation. The teams table knows that abbreviation's stadium. A JOIN lines those up so you can ask a question that spans both: where did each legendary DT play his home games?", example: "SELECT l.name, t.location\nFROM legends l\nJOIN teams t ON l.team = t.abbr\nWHERE l.pos = 'QB';" },
+    prompt: "Return each defensive tackle's <code>name</code> and the <code>stadium</code> of his franchise. Join <code>legends</code> to <code>teams</code> on <code>legends.team = teams.abbr</code>, and keep only <code>pos = 'DT'</code>.",
+    expect: "SELECT l.name, t.stadium FROM legends l JOIN teams t ON l.team = t.abbr WHERE l.pos = 'DT'", ordered: false,
+    hint: "<code>FROM legends l JOIN teams t ON l.team = t.abbr WHERE l.pos = 'DT'</code>, select <code>l.name, t.stadium</code>.",
+    note: "This is why databases split data into tables instead of one giant sheet: the stadium is stored once per team, not once per player, so a stadium rename is one row's change. Joins put it back together on demand. The column you join on (abbr) is called a key.",
+    sol: "SELECT l.name, t.stadium\nFROM legends l\nJOIN teams t ON l.team = t.abbr\nWHERE l.pos = 'DT';" },
+
+  { id: "p4", tier: "pass", concept: "CASE (if/else in SQL)", title: "Tag the Plays",
+    teach: { what: "<code>CASE WHEN cond THEN value WHEN cond2 THEN value2 ELSE default END</code> is SQL's if/elif/else, evaluated per row. Give it an alias. Conditions are checked top to bottom; the first match wins.", football: "The film-room tag on every snap: explosive, loss, or normal. Same play data, a label computed from the yardage.", example: "SELECT name,\n  CASE WHEN super_bowls >= 4 THEN 'dynasty' WHEN super_bowls = 0 THEN 'ringless' ELSE 'champion' END AS tier\nFROM teams;" },
+    prompt: "For run and pass plays, return <code>id</code>, <code>yards</code>, and a <code>tag</code>: <code>'explosive'</code> when yards &gt;= 20, <code>'loss'</code> when yards &lt; 0, otherwise <code>'normal'</code>.",
+    expect: "SELECT id, yards, CASE WHEN yards >= 20 THEN 'explosive' WHEN yards < 0 THEN 'loss' ELSE 'normal' END AS tag FROM plays WHERE play_type IN ('run', 'pass')", ordered: false,
+    hint: "<code>CASE WHEN yards &gt;= 20 THEN 'explosive' WHEN yards &lt; 0 THEN 'loss' ELSE 'normal' END AS tag</code>",
+    note: "CASE is also how you do conditional counting (next drill) and how you bucket continuous values into categories for a report. Don't forget the <code>END</code>; its absence is the most common CASE error.",
+    sol: "SELECT id, yards,\n  CASE\n    WHEN yards >= 20 THEN 'explosive'\n    WHEN yards < 0 THEN 'loss'\n    ELSE 'normal'\n  END AS tag\nFROM plays\nWHERE play_type IN ('run', 'pass');" },
+
+  { id: "p5", tier: "pass", concept: "Conditional aggregates", title: "Third-Down Efficiency",
+    teach: { what: "<code>SUM(CASE WHEN cond THEN 1 ELSE 0 END)</code> counts the rows that meet a condition while <code>COUNT(*)</code> counts them all, in the same query. That's how you get \"made / attempted\" on one row.", football: "Third-down conversion rate: of all third downs, how many moved the chains (a first down or a touchdown)? Two numbers, one row.", example: "SELECT SUM(CASE WHEN granted = 1 THEN 1 ELSE 0 END) AS allowed, COUNT(*) AS swipes FROM access_log;" },
+    prompt: "For plays where <code>down = 3</code>, return <code>converted</code> (count of plays whose <code>result</code> is <code>'first down'</code> or <code>'touchdown'</code>) and <code>attempts</code> (all third downs), in that column order.",
+    expect: "SELECT SUM(CASE WHEN result IN ('first down', 'touchdown') THEN 1 ELSE 0 END) AS converted, COUNT(*) AS attempts FROM plays WHERE down = 3", ordered: false,
+    hint: "<code>SUM(CASE WHEN result IN ('first down', 'touchdown') THEN 1 ELSE 0 END) AS converted, COUNT(*) AS attempts ... WHERE down = 3</code>",
+    note: "Dividing them, <code>converted * 1.0 / attempts</code>, gives the rate; the <code>* 1.0</code> forces decimal division, because integer divided by integer in SQLite drops the fraction. Same divide-by-zero concern as Python if there were no third downs.",
+    sol: "SELECT\n  SUM(CASE WHEN result IN ('first down', 'touchdown') THEN 1 ELSE 0 END) AS converted,\n  COUNT(*) AS attempts\nFROM plays\nWHERE down = 3;" },
+
+  { id: "p6", tier: "pass", concept: "Subqueries", title: "Ringless Legends",
+    teach: { what: "A <b>subquery</b> is a query inside parentheses whose result feeds another query. <code>WHERE team IN (SELECT abbr FROM teams WHERE ...)</code> uses one query to build the list for IN.", football: "Great players who never got a ring with their franchise. Step one: which teams have zero titles? Step two: which legends played for those teams? The subquery is step one, nested inside step two.", example: "SELECT name FROM legends WHERE number = (SELECT MAX(number) FROM legends);" },
+    prompt: "Return the <code>name</code> of every legend whose <code>team</code> has zero Super Bowl wins. Use a subquery on <code>teams</code>.",
+    expect: "SELECT name FROM legends WHERE team IN (SELECT abbr FROM teams WHERE super_bowls = 0)", ordered: false,
+    hint: "<code>WHERE team IN (SELECT abbr FROM teams WHERE super_bowls = 0)</code>",
+    note: "The same question can be written as a JOIN; both are correct, and the database usually runs them the same way. Subqueries read well when the inner question stands on its own; joins read well when you need columns from both tables.",
+    sol: "SELECT name\nFROM legends\nWHERE team IN (SELECT abbr FROM teams WHERE super_bowls = 0);" },
+
+  { id: "p7", tier: "pass", concept: "Grouping by two columns", title: "Titles by Division",
+    teach: { what: "GROUP BY can take several columns; each distinct combination becomes a group. Sort the result so the ranking is readable and stable.", football: "Which division has the most rings in its history? Pile the teams by conference and division, add up the titles in each pile.", example: "SELECT play_type, result, COUNT(*) FROM plays GROUP BY play_type, result;" },
+    prompt: "Return <code>conference</code>, <code>division</code> and the total Super Bowl wins of its teams (alias <code>titles</code>), most first, then by conference and division alphabetically.",
+    expect: "SELECT conference, division, SUM(super_bowls) AS titles FROM teams GROUP BY conference, division ORDER BY titles DESC, conference ASC, division ASC", ordered: true,
+    hint: "<code>GROUP BY conference, division ORDER BY titles DESC, conference, division</code>",
+    note: "Eight rows, one per division. If you grouped by division alone you'd get four rows that mash AFC East and NFC East together, which looks plausible and is wrong. Group by every column that defines the thing you're counting.",
+    sol: "SELECT conference, division, SUM(super_bowls) AS titles\nFROM teams\nGROUP BY conference, division\nORDER BY titles DESC, conference ASC, division ASC;" },
+
+  /* ================= DEEP SHOT (hard) ================= */
+  { id: "d1", tier: "deep", concept: "Aggregate, rank, take one", title: "Rushing Leader",
+    teach: { what: "Group by player, sum the yards, sort descending, LIMIT 1. Four clauses working in sequence.", football: "Who led the team in rushing? Total every back's carries, line them up, take the top.", example: "SELECT player, COUNT(*) AS targets FROM plays WHERE play_type = 'pass' GROUP BY player ORDER BY targets DESC LIMIT 1;" },
+    prompt: "Return the <code>player</code> with the most rushing yards and his total (alias <code>rush_yards</code>). Runs only.",
+    expect: "SELECT player, SUM(yards) AS rush_yards FROM plays WHERE play_type = 'run' GROUP BY player ORDER BY rush_yards DESC LIMIT 1", ordered: true,
+    hint: "<code>WHERE play_type = 'run' GROUP BY player ORDER BY rush_yards DESC LIMIT 1</code>",
+    note: "Read it in execution order and it's a story: FROM plays, WHERE runs only, GROUP BY player, SELECT the sums, ORDER BY the sum, LIMIT to the leader.",
+    sol: "SELECT player, SUM(yards) AS rush_yards\nFROM plays\nWHERE play_type = 'run'\nGROUP BY player\nORDER BY rush_yards DESC\nLIMIT 1;" },
+
+  { id: "d2", tier: "deep", concept: "Multi-aggregate report", title: "Quarter by Quarter",
+    teach: { what: "One GROUP BY can feed several aggregates at once, including a conditional one. This is the shape of nearly every summary report.", football: "The box score by quarter: plays run, total yards, touchdowns. One row per quarter, in order.", example: "SELECT badge, COUNT(*) AS swipes, SUM(CASE WHEN granted = 0 THEN 1 ELSE 0 END) AS denied FROM access_log GROUP BY badge;" },
+    prompt: "Return, per <code>quarter</code>: <code>plays</code> (count), <code>yards</code> (sum), and <code>tds</code> (count of plays whose result is <code>'touchdown'</code>). Columns in that order, sorted by quarter.",
+    expect: "SELECT quarter, COUNT(*) AS plays, SUM(yards) AS yards, SUM(CASE WHEN result = 'touchdown' THEN 1 ELSE 0 END) AS tds FROM plays GROUP BY quarter ORDER BY quarter", ordered: true,
+    hint: "Three aggregates after <code>quarter</code>, then <code>GROUP BY quarter ORDER BY quarter</code>.",
+    note: "Reusing a column name as an alias (<code>SUM(yards) AS yards</code>) is legal and common, but in bigger queries it can confuse you about which one ORDER BY is using. When in doubt, pick a distinct alias.",
+    sol: "SELECT quarter,\n  COUNT(*) AS plays,\n  SUM(yards) AS yards,\n  SUM(CASE WHEN result = 'touchdown' THEN 1 ELSE 0 END) AS tds\nFROM plays\nGROUP BY quarter\nORDER BY quarter;" },
+
+  { id: "d3", tier: "deep", concept: "Scalar subquery", title: "Above the Line",
+    teach: { what: "A subquery that returns exactly one value can be used anywhere a value can: <code>WHERE yards &gt; (SELECT AVG(yards) FROM plays)</code>. The inner query runs first, its number is plugged in, and the outer query filters with it.", football: "Which plays beat the game's average? You can't know the cutoff until you've computed the average over everything, so the average is its own little query.", example: "SELECT name FROM teams WHERE first_season < (SELECT AVG(first_season) FROM teams);" },
+    prompt: "Return <code>id</code>, <code>player</code> and <code>yards</code> for every play that gained more than the average yards of all plays, longest first, ties by lower <code>id</code> first.",
+    expect: "SELECT id, player, yards FROM plays WHERE yards > (SELECT AVG(yards) FROM plays) ORDER BY yards DESC, id ASC", ordered: true,
+    hint: "<code>WHERE yards &gt; (SELECT AVG(yards) FROM plays) ORDER BY yards DESC, id ASC</code>",
+    note: "The average includes punts and incompletions at 0 yards, which drags it down; whether that's the right denominator is a judgment call, and a good analyst says which one they used. Several plays share a yardage, so the id tiebreak is doing real work here.",
+    sol: "SELECT id, player, yards\nFROM plays\nWHERE yards > (SELECT AVG(yards) FROM plays)\nORDER BY yards DESC, id ASC;" },
+
+  { id: "d4", tier: "deep", concept: "Self-join", title: "Number Twins",
+    teach: { what: "A table can be joined to itself with two aliases: <code>legends a JOIN legends b</code>. The ON clause pairs rows; <code>a.name &lt; b.name</code> keeps each pair once (otherwise you get both orders plus every player paired with himself).", football: "Which legends wore the same number for different franchises? Lay the list next to a copy of itself and match on number.", example: "SELECT a.name, b.name\nFROM legends a\nJOIN legends b ON a.team = b.team AND a.pos = b.pos AND a.name < b.name;   -- same team, same position" },
+    prompt: "Return pairs of legends who wore the same <code>number</code> for different teams: columns <code>a.name</code>, <code>b.name</code>, <code>a.number</code>. Each pair once (<code>a.name &lt; b.name</code>). Sort by number, then <code>a.name</code>.",
+    expect: "SELECT a.name, b.name, a.number FROM legends a JOIN legends b ON a.number = b.number AND a.team <> b.team AND a.name < b.name ORDER BY a.number, a.name", ordered: true,
+    hint: "<code>JOIN legends b ON a.number = b.number AND a.team &lt;&gt; b.team AND a.name &lt; b.name</code>",
+    note: "Self-joins answer \"which rows relate to other rows in the same table\": employees and their managers, flights and their connections, users who share a password hash (a real security query). The <code>a.name &lt; b.name</code> trick to de-duplicate pairs is worth memorizing.",
+    sol: "SELECT a.name, b.name, a.number\nFROM legends a\nJOIN legends b\n  ON a.number = b.number\n AND a.team <> b.team\n AND a.name < b.name\nORDER BY a.number, a.name;" },
+
+  { id: "d5", tier: "deep", concept: "Security audit query", title: "Badge Audit",
+    teach: { what: "WHERE narrows to denied swipes, GROUP BY badge, HAVING keeps only repeat offenders. This exact shape, \"who failed N or more times\", is the first query every security analyst learns.", football: "Facility security pulls the badge log: who keeps getting denied at doors they shouldn't be near? Three or more denials is worth a conversation.", example: "SELECT door, COUNT(*) AS denied FROM access_log WHERE granted = 0 GROUP BY door;" },
+    prompt: "Return each <code>badge</code> with 3 or more denied swipes (<code>granted = 0</code>) and the count (alias <code>denied</code>), most denials first.",
+    expect: "SELECT badge, COUNT(*) AS denied FROM access_log WHERE granted = 0 GROUP BY badge HAVING COUNT(*) >= 3 ORDER BY denied DESC", ordered: true,
+    hint: "<code>WHERE granted = 0 GROUP BY badge HAVING COUNT(*) &gt;= 3 ORDER BY denied DESC</code>",
+    note: "Swap the table for an authentication log and the badge for a username and you have a brute-force detection query. Add <code>AND hour BETWEEN 0 AND 5</code> and you're asking who's trying doors in the middle of the night. SQL is the analyst's primary tool because questions like these are one line each.",
+    sol: "SELECT badge, COUNT(*) AS denied\nFROM access_log\nWHERE granted = 0\nGROUP BY badge\nHAVING COUNT(*) >= 3\nORDER BY denied DESC;" },
+
+  { id: "d6", tier: "deep", concept: "Computed aggregates with NULL handling", title: "Longest Careers by Position",
+    teach: { what: "Average a computed expression per group, excluding NULLs on purpose with WHERE, then rank and limit. Every piece is from camp; the skill is sequencing them.", football: "Which positions have the longest careers among the legends? Active players don't have an end year, so they have to be left out or they'd poison the average.", example: "SELECT team, MAX(last_year - first_year + 1) AS longest FROM legends WHERE last_year IS NOT NULL GROUP BY team;" },
+    prompt: "Return <code>pos</code> and the average career length in seasons (<code>last_year - first_year + 1</code>, rounded to 1 decimal, alias <code>avg_seasons</code>) for retired legends only. Top 3 positions, longest first, ties alphabetical.",
+    expect: "SELECT pos, ROUND(AVG(last_year - first_year + 1), 1) AS avg_seasons FROM legends WHERE last_year IS NOT NULL GROUP BY pos ORDER BY avg_seasons DESC, pos ASC LIMIT 3", ordered: true,
+    hint: "<code>WHERE last_year IS NOT NULL GROUP BY pos ORDER BY avg_seasons DESC, pos ASC LIMIT 3</code>",
+    note: "If you forget the NULL filter, AVG silently skips the NULL results anyway, so the numbers come out the same here. In other databases or with COUNT in the mix, they wouldn't. Filtering explicitly documents your intent and protects you when the data changes.",
+    sol: "SELECT pos, ROUND(AVG(last_year - first_year + 1), 1) AS avg_seasons\nFROM legends\nWHERE last_year IS NOT NULL\nGROUP BY pos\nORDER BY avg_seasons DESC, pos ASC\nLIMIT 3;" },
+
+  { id: "d7", tier: "deep", concept: "JOIN + GROUP BY", title: "Legends by Division",
+    teach: { what: "Join first so each legend row carries its team's division, then group by the joined columns. The join widens each row; the group collapses them.", football: "Which division produced the most legends on the list? The division lives in teams, the players live in legends; join, then pile up.", example: "SELECT t.conference, COUNT(*) AS n FROM legends l JOIN teams t ON l.team = t.abbr GROUP BY t.conference;" },
+    prompt: "Return <code>conference</code>, <code>division</code> and the number of legends from its teams (alias <code>legends</code>). Most first, then conference and division alphabetically.",
+    expect: "SELECT t.conference, t.division, COUNT(*) AS legends FROM legends l JOIN teams t ON l.team = t.abbr GROUP BY t.conference, t.division ORDER BY legends DESC, t.conference ASC, t.division ASC", ordered: true,
+    hint: "<code>FROM legends l JOIN teams t ON l.team = t.abbr GROUP BY t.conference, t.division ORDER BY legends DESC, t.conference, t.division</code>",
+    note: "Divisions with zero legends would be missing from this result, because an inner JOIN only keeps matches. A <code>LEFT JOIN</code> from teams would keep them with a count of 0, the same way the Python standings drill initialized every team first.",
+    sol: "SELECT t.conference, t.division, COUNT(*) AS legends\nFROM legends l\nJOIN teams t ON l.team = t.abbr\nGROUP BY t.conference, t.division\nORDER BY legends DESC, t.conference ASC, t.division ASC;" },
+
+  { id: "d8", tier: "deep", concept: "CTEs (WITH)", title: "Fifty-Yard Club",
+    teach: { what: "A <b>CTE</b> (<code>WITH name AS (...)</code>) gives a subquery a name so the main query reads top to bottom. Build the per-player totals first, then query that result like a table.", football: "Everybody who touched the ball for 50 or more yards from scrimmage. Step one, total each player's yards; step two, keep the ones over the line. The CTE is step one with a name on it.", example: "WITH denied AS (\n  SELECT badge, COUNT(*) AS n FROM access_log WHERE granted = 0 GROUP BY badge\n)\nSELECT badge FROM denied WHERE n >= 3;" },
+    prompt: "Using a CTE named <code>per_player</code> that totals <code>yards</code> per <code>player</code> on run and pass plays (alias <code>total</code>), return <code>player</code> and <code>total</code> for everyone with 50 or more, highest first.",
+    expect: "WITH per_player AS (SELECT player, SUM(yards) AS total FROM plays WHERE play_type IN ('run', 'pass') GROUP BY player) SELECT player, total FROM per_player WHERE total >= 50 ORDER BY total DESC", ordered: true,
+    hint: "<code>WITH per_player AS (SELECT player, SUM(yards) AS total FROM plays WHERE play_type IN ('run', 'pass') GROUP BY player) SELECT player, total FROM per_player WHERE total &gt;= 50 ORDER BY total DESC</code>",
+    note: "You could write this with HAVING total &gt;= 50 and no CTE. CTEs earn their keep when the intermediate result is reused or the query gets long enough that nesting hurts readability. Naming your steps is the same discipline as naming your variables.",
+    sol: "WITH per_player AS (\n  SELECT player, SUM(yards) AS total\n  FROM plays\n  WHERE play_type IN ('run', 'pass')\n  GROUP BY player\n)\nSELECT player, total\nFROM per_player\nWHERE total >= 50\nORDER BY total DESC;" }
+];
+
+/* ===== Shared game engine (Training Camp + Game Day) ===== */
+const TIERS = {
+  camp: { label: "Fundamentals", diff: 1, name: "Basics", gain: [2, 5],   desc: "Three-point stance work. A miss costs nothing but the down." },
+  run:  { label: "Run",          diff: 1, name: "Easy",   gain: [3, 7],   desc: "Steady yards, low risk. A miss gets stuffed at the line." },
+  pass: { label: "Short Pass",   diff: 2, name: "Medium", gain: [8, 15],  desc: "Moves the chains. A miss falls incomplete." },
+  deep: { label: "Deep Shot",    diff: 3, name: "Hard",   gain: [22, 38], desc: "Chunk play. A miss can get picked off." }
+};
+const DRIVES_PER_GAME = 8;
+const BYID = Object.fromEntries(CH.map(c => [c.id, c]));
+const ORDER = CH.map(c => c.id);
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+/* ---------- persistence (per-viewer convenience only) ---------- */
+const STORE_KEY = "playbook." + GAME.key + ".v1";
+let P = { solved: {}, best: 0, drafts: {}, campIdx: 0, mode: "camp" };
+try { const raw = localStorage.getItem(STORE_KEY); if (raw) P = Object.assign(P, JSON.parse(raw)); } catch (e) {}
+function persist() { try { localStorage.setItem(STORE_KEY, JSON.stringify(P)); } catch (e) {} }
+
+/* ---------- state ---------- */
+let S;
+function freshGame() {
+  return { yl: 25, down: 1, toGo: 10, score: 0, drive: 1, snaps: 0, hits: 0, tds: 0, fgs: 0, timeouts: 3, trivRight: 0, trivTotal: 0,
+    log: [], phase: "kickoff", trivia: null, trivAnswered: null, cur: null, tier: null, kind: null, snapped: false, hintShown: false,
+    seen: [], over: false, returnTo: null };
+}
+function ddText(down, toGo, yl) { return ["", "1st", "2nd", "3rd", "4th"][down] + " & " + (yl + toGo >= 100 ? "Goal" : toGo); }
+function ballText(yl) { return yl < 50 ? "OWN " + yl : yl === 50 ? "50" : "OPP " + (100 - yl); }
+const inCamp = () => P.mode === "camp";
+
+/* ---------- field ---------- */
+function buildField() {
+  const f = $("field");
+  let h = '<div class="ez l"><span>HOME</span></div><div class="ez r"><span>END ZONE</span></div>';
+  for (let y = 0; y <= 100; y += 10) {
+    const left = (10 + y) / 120 * 100;
+    h += '<div class="yl" style="left:' + left + '%"></div>';
+    if (y > 0 && y < 100) h += '<div class="yn" style="left:' + left + '%">' + (y <= 50 ? y : 100 - y) + '</div>';
+  }
+  h += '<div class="mark los" id="mLos"></div><div class="mark fd" id="mFd"></div><div class="ball" id="mBall"></div>';
+  f.innerHTML = h;
+}
+const pct = yl => (10 + yl) / 120 * 100 + "%";
+function renderField() {
+  const fdY = Math.min(100, S.yl + S.toGo);
+  $("mLos").style.left = pct(S.yl); $("mBall").style.left = pct(S.yl); $("mFd").style.left = pct(fdY);
+  $("mFd").hidden = fdY >= 100;
+}
+
+/* ---------- scoreboard + camp strip ---------- */
+function renderBoard() {
+  const camp = inCamp();
+  $("gameBar").hidden = camp; $("campBar").hidden = !camp; $("logPanel").hidden = camp; $("btnNew").hidden = camp;
+  document.querySelectorAll(".modes button").forEach(b => b.classList.toggle("on", b.dataset.mode === P.mode));
+  if (camp) {
+    const done = CH.filter(c => P.solved[c.id]).length;
+    $("campBar").innerHTML = '<div><div class="big">Training Camp</div><div class="sub">Drill ' + (P.campIdx + 1) + ' of ' + CH.length + ' · ' + esc(BYID[ORDER[P.campIdx]].concept) + '</div></div>' +
+      '<div class="prog"><div class="sub">' + done + ' of ' + CH.length + ' drills complete</div><div class="bar"><i style="width:' + (done / CH.length * 100) + '%"></i></div></div>';
+    return;
+  }
+  $("sbScore").textContent = S.score;
+  $("sbDrive").textContent = Math.min(S.drive, DRIVES_PER_GAME) + " / " + DRIVES_PER_GAME;
+  $("sbDown").textContent = S.over ? "Final" : S.phase === "kickoff" ? "Kickoff" : ddText(S.down, S.toGo, S.yl);
+  $("sbBall").textContent = S.over ? "--" : ballText(S.yl);
+  $("sbComp").textContent = S.hits + "/" + S.snaps;
+  $("sbTO").innerHTML = [0, 1, 2].map(i => '<i class="' + (i < S.timeouts ? "" : "used") + '"></i>').join("");
+  renderField();
+}
+
+/* ---------- log ---------- */
+function addLog(tag, cls, text) {
+  S.log.unshift({ tag, cls, text, sit: (S.phase === "kickoff" ? "Kickoff" : ddText(S.down, S.toGo, S.yl) + " · " + ballText(S.yl)) + " · Poss " + Math.min(S.drive, DRIVES_PER_GAME) });
+  S.log = S.log.slice(0, 60);
+}
+function renderLog() {
+  const el = $("log");
+  if (!S.log.length) { el.innerHTML = '<p class="empty">No snaps yet. Answer the kickoff trivia, then pick a play in the huddle.</p>'; return; }
+  el.innerHTML = S.log.map(l => '<li><span class="tag ' + l.cls + '">' + esc(l.tag) + '</span><div>' + esc(l.text) + '<div class="sit">' + esc(l.sit) + '</div></div></li>').join("");
+}
+
+/* ---------- playbook list ---------- */
+function renderPlaybook() {
+  const total = CH.length, done = CH.filter(c => P.solved[c.id]).length;
+  $("pbCount").textContent = done + "/" + total;
+  $("pbBar").style.width = (done / total * 100) + "%";
+  const curId = inCamp() ? ORDER[P.campIdx] : (S.phase === "play" || S.phase === "practice") ? S.cur : null;
+  $("pbList").innerHTML = Object.keys(TIERS).map(t =>
+    '<div class="pb-group"><div class="eyebrow">' + TIERS[t].label + ' · ' + TIERS[t].name + '</div>' +
+    CH.filter(c => c.tier === t).map(c =>
+      '<button class="pb-item' + (c.id === curId ? " cur" : "") + '" type="button" data-open="' + c.id + '"><span class="t2">' + esc(c.title) + '</span><span class="cpt">' + esc(c.concept) + '</span><span class="ck ' + (P.solved[c.id] ? "done" : "") + '">' + (P.solved[c.id] ? "✓" : "") + '</span></button>'
+    ).join("") + '</div>').join("");
+}
+
+/* ---------- huddle ---------- */
+function diffDots(n) { return '<span class="diff" aria-label="difficulty ' + n + ' of 3">' + [1,2,3].map(i => '<i class="' + (i <= n ? "on" : "") + '"></i>').join("") + '</span>'; }
+function renderHuddle() {
+  const fgDist = 100 - S.yl + 17;
+  const canFG = S.down === 4 && fgDist <= 55;
+  const campDone = CH.filter(c => c.tier === "camp" && P.solved[c.id]).length, campTotal = CH.filter(c => c.tier === "camp").length;
+  const tips = [
+    campDone < campTotal ? "You've finished " + campDone + " of " + campTotal + " fundamentals. Run Fundamentals plays or switch to Training Camp to knock them out in order." : "Fundamentals are all checked off. Nice. Run and Pass plays build on them.",
+    "Every play has a Chalk talk button. Read it before you write a line, same as a walkthrough before a live rep.",
+    "Burn a timeout to get a hint. You get 3 per possession.",
+    "Miss a play? Read the film room, then rewrite it without looking. That second rep is where it sticks.",
+    GAME.consoleTip
+  ];
+  let h = '<div class="huddle-head"><div><div class="eyebrow">Huddle · Possession ' + S.drive + ' of ' + DRIVES_PER_GAME + '</div><h2>' + ddText(S.down, S.toGo, S.yl) + ' at ' + ballText(S.yl) + '</h2></div></div>';
+  h += '<div class="plays">' + Object.keys(TIERS).map(t => {
+    const T = TIERS[t];
+    return '<button class="play" type="button" data-call="' + t + '"><span class="pn">' + T.label + '</span><span class="meta"><span>' + diffDots(T.diff) + ' ' + T.name + '</span><span class="yds">+' + T.gain[0] + ' to ' + T.gain[1] + ' yds</span></span><span class="desc">' + T.desc + '</span></button>';
+  }).join("") + '</div>';
+  if (S.down === 4) {
+    h += '<div class="special"><div class="eyebrow">4th down: go for it above, or bring out special teams</div><div class="plays">';
+    if (canFG) h += '<button class="play" type="button" data-call="fg"><span class="pn">' + fgDist + '-yd Field Goal</span><span class="meta"><span>' + diffDots(1) + ' Easy</span><span class="yds">3 pts</span></span><span class="desc">An easy drill. Hit it for 3, miss and the possession ends.</span></button>';
+    h += '<button class="play" type="button" data-call="punt"><span class="pn">Punt</span><span class="meta"><span>No drill</span><span class="yds">0 pts</span></span><span class="desc">Give it up and start the next possession.</span></button>';
+    h += '</div></div>';
+  }
+  h += '<p class="coach-tip"><b>Coach:</b> ' + tips[(S.drive + S.down + S.snaps) % tips.length] + '</p>';
+  $("stage").innerHTML = h;
+}
+
+function pickChallenge(tier) {
+  const pool = CH.filter(c => c.tier === tier);
+  const list = [pool.filter(c => !P.solved[c.id] && !S.seen.includes(c.id)), pool.filter(c => !S.seen.includes(c.id)), pool].find(l => l.length);
+  const c = list[Math.floor(Math.random() * list.length)];
+  S.seen.push(c.id); if (S.seen.length > 24) S.seen = S.seen.slice(-24);
+  return c;
+}
+function callPlay(call) {
+  if (call === "punt") { addLog("PUNT", "info", "Punted from " + ballText(S.yl) + "."); endPossession(); return render(); }
+  const tier = call === "fg" ? "run" : call;
+  const c = pickChallenge(tier);
+  Object.assign(S, { phase: "play", cur: c.id, tier, kind: call === "fg" ? "fg" : "play", snapped: false, hintShown: false });
+  render();
+}
+
+/* ---------- kickoff trivia ---------- */
+function renderKickoff() {
+  if (!S.trivia) S.trivia = makeTrivia();
+  const t = S.trivia, a = S.trivAnswered;
+  let h = '<div class="kick"><div><div class="eyebrow">Kickoff · Possession ' + S.drive + ' of ' + DRIVES_PER_GAME + '</div><h2>Spin a team, answer the question, set your field position</h2></div>';
+  h += '<div class="spin"><div class="helmet">' + esc(t.team.abbr) + '</div><div><div class="tl">Your spin</div><div class="tn">' + esc(t.team.location + " " + t.team.name) + '</div></div></div>';
+  h += '<div class="q">' + esc(t.q) + '</div>';
+  h += '<div class="opts">' + t.options.map(o => {
+    let cls = "opt";
+    if (a) { if (o === t.answer) cls += " right"; else if (o === a) cls += " wrong"; }
+    return '<button class="' + cls + '" type="button" data-ans="' + esc(o) + '"' + (a ? " disabled" : "") + '>' + esc(o) + '</button>';
+  }).join("") + '</div>';
+  if (a) {
+    const right = a === t.answer;
+    h += '<div class="banner ' + (right ? "good" : "bad") + '" style="margin-top:0"><span class="call">' + (right ? "Big return · ball at the 40" : "Tackled at the 20") + '</span><span class="sub">' + (right ? "Correct." : "Answer: " + esc(t.answer) + ".") + '</span></div>';
+    h += '<p class="fact"><b>Scouting report:</b> ' + esc(t.fact) + (GAME.triviaExtra ? GAME.triviaExtra(t) : "") + '</p>';
+    h += '<div class="actions"><button class="btn gold" type="button" id="btnHuddle">Break the huddle</button></div>';
+  } else {
+    h += '<p class="fact">Right answer starts the drive at your own 40. Wrong answer, the 20. <button class="btn" type="button" id="btnFair" style="margin-left:6px">Fair catch (skip, start at the 25)</button></p>';
+  }
+  h += '</div>';
+  $("stage").innerHTML = h;
+}
+function answerTrivia(ans) {
+  if (S.trivAnswered) return;
+  S.trivAnswered = ans; S.trivTotal++;
+  const right = ans === S.trivia.answer;
+  if (right) S.trivRight++;
+  S.yl = right ? 40 : 20;
+  addLog(right ? "+15" : "KO", right ? "gain" : "info", (right ? "Trivia correct. Return out to the 40." : "Trivia miss. Tackled at the 20.") + " (" + S.trivia.team.name + ")");
+  render();
+}
+function breakHuddle() { S.phase = "huddle"; S.trivia = null; S.trivAnswered = null; render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+/* ---------- practice from the playbook list ---------- */
+function openFromList(id) {
+  if (inCamp()) { P.campIdx = ORDER.indexOf(id); persist(); render(); scrollStage(); return; }
+  if (S.phase !== "practice") S.returnTo = { phase: S.phase, cur: S.cur, tier: S.tier, kind: S.kind, snapped: S.snapped, hintShown: S.hintShown };
+  Object.assign(S, { phase: "practice", cur: id, tier: BYID[id].tier, kind: "practice", snapped: false, hintShown: false });
+  render(); scrollStage();
+}
+function leavePractice() {
+  const r = S.returnTo || { phase: "huddle" }; S.returnTo = null;
+  Object.assign(S, r); if (S.over) S.phase = "final"; render();
+}
+function scrollStage() { window.scrollTo({ top: $("stage").offsetTop - 12, behavior: "smooth" }); }
+
+/* ---------- challenge frame (camp, game, practice) ---------- */
+function curKind() { return inCamp() ? "camp" : S.kind; }
+function curId() { return inCamp() ? ORDER[P.campIdx] : S.cur; }
+
+function talkHtml(c, open) {
+  const t = c.teach;
+  return '<div class="talk" id="talk"' + (open ? "" : " hidden") + '><div class="eyebrow">Chalk talk · ' + esc(c.concept) + '</div>' +
+    '<div class="talk-row"><div><h4>What it is</h4><p>' + t.what + '</p></div><div><h4>Football translation</h4><p>' + t.football + '</p></div></div>' +
+    (t.example ? '<div><h4>On the board</h4><pre>' + esc(t.example) + '</pre></div>' : '') + '</div>';
+}
+function filmHtml(c) {
+  return '<div class="film" id="film" hidden><div class="eyebrow">Film room</div><p class="note">' + c.note + '</p><pre class="sol">' + esc(c.sol) + '</pre>' +
+    (c.walk ? '<ul class="walk">' + c.walk.map(w => '<li><code>' + esc(w[0]) + '</code><span>' + w[1] + '</span></li>').join("") + '</ul>' : '') + '</div>';
+}
+function renderChallenge() {
+  const kind = curKind(), c = BYID[curId()], T = TIERS[c.tier];
+  const practice = kind === "practice", camp = kind === "camp", game = kind === "play" || kind === "fg";
+  const label = camp ? "Drill " + (P.campIdx + 1) + " of " + CH.length + " · " + T.label : practice ? "Practice · " + T.name : kind === "fg" ? "Field goal · " + (100 - S.yl + 17) + " yds" : T.label + " · " + T.name;
+  const code = P.drafts[c.id] ?? GAME.starter(c);
+  const talkOpen = camp || c.tier === "camp" || !P.solved[c.id];
+  const hintFree = !game || S.snapped;
+  let h = '<div class="ch-head"><div><span class="pill' + (practice ? " blue" : "") + '">' + esc(label) + '</span><h2>' + esc(c.title) + '</h2><div class="eyebrow" style="margin-top:4px">' + esc(c.concept) + '</div></div>' +
+    (practice ? '<button class="btn" type="button" id="btnLeave">' + (S.over ? "Back to final" : "Back to game") + '</button>' : game ? '<span class="eyebrow">' + ddText(S.down, S.toGo, S.yl) + ' · ' + ballText(S.yl) + '</span>' : '') + '</div>';
+  h += talkHtml(c, talkOpen);
+  h += '<p class="prompt">' + c.prompt + '</p>';
+  h += GAME.examplesHtml(c);
+  h += '<div class="editor"><div class="ed-bar"><span class="mono">' + GAME.fileName + '</span><span>' + GAME.editorHelp + '</span></div><textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Code editor">' + esc(code) + '</textarea></div>';
+  h += '<div class="actions">' +
+    '<button class="btn" type="button" id="btnEx">' + GAME.exampleLabel + '</button>' +
+    '<button class="btn primary" type="button" id="btnSnap">' + (camp ? "Check drill" : practice ? "Run all tests" : S.snapped ? "Re-run all tests" : "Snap the ball") + '</button>' +
+    '<button class="btn" type="button" id="btnTalk">' + (talkOpen ? "Hide chalk talk" : "Chalk talk") + '</button>' +
+    '<button class="btn" type="button" id="btnHint"' + (S.hintShown || (!hintFree && S.timeouts === 0) ? " disabled" : "") + '>' + (S.hintShown ? "Hint shown" : hintFree ? "Hint" : "Timeout: hint (" + S.timeouts + " left)") + '</button>' +
+    (!game || S.snapped ? '<button class="btn" type="button" id="btnFilm">Film room' + (camp ? ": see the answer" : "") + '</button>' : '') +
+    '<button class="btn" type="button" id="btnReset">Reset code</button>' +
+    '</div>';
+  h += '<div class="hint" id="hintBox"' + (S.hintShown ? "" : " hidden") + '><b>Hint:</b> ' + c.hint + '</div>';
+  h += '<div id="result"></div>';
+  h += filmHtml(c);
+  if (camp) h += '<div class="camp-nav"><button class="btn" type="button" id="btnPrev"' + (P.campIdx === 0 ? " disabled" : "") + '>← Previous drill</button><span class="side-note" style="margin:0;align-self:center">' + (P.solved[c.id] ? "Checked off. " : "") + 'Drills build on each other, so go in order the first time through.</span><button class="btn" type="button" id="btnNext"' + (P.campIdx >= CH.length - 1 ? " disabled" : "") + '>Next drill →</button></div>';
+  $("stage").innerHTML = h;
+  wireEditor();
+}
+function wireEditor() {
+  const ta = $("code"), c = BYID[curId()];
+  ta.addEventListener("input", () => { P.drafts[c.id] = ta.value; persist(); });
+  ta.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); runExamples(); return; }
+    if (e.key === "Escape") { ta.blur(); return; }
+    if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); insertAt(ta, GAME.indent); }
+    else if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const line = ta.value.slice(0, ta.selectionStart).split("\n").pop();
+      let indent = line.match(/^\s*/)[0];
+      if (GAME.indentAfter.test(line)) indent += GAME.indent;
+      insertAt(ta, "\n" + indent);
+    }
+  });
+}
+function insertAt(ta, text) { ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, "end"); ta.dispatchEvent(new Event("input")); }
+
+/* ---------- running + grading ---------- */
+let busy = false;
+async function runExamples() {
+  if (busy) return; busy = true;
+  const c = BYID[curId()];
+  try {
+    const res = await GAME.run($("code").value, c, true);
+    $("result").innerHTML = '<div class="eyebrow" style="margin-top:14px">' + GAME.exampleHeading + '</div>' + GAME.resultHtml(c, res, true);
+  } finally { busy = false; }
+}
+async function snap() {
+  if (busy) return; busy = true;
+  const kind = curKind(), c = BYID[curId()];
+  P.drafts[c.id] = $("code").value; persist();
+  try {
+    const res = await GAME.run($("code").value, c, false);
+    const passed = !!res.passed;
+    if (passed && !P.solved[c.id]) { P.solved[c.id] = true; persist(); renderPlaybook(); renderBoard(); }
+    if (kind === "camp") {
+      const last = P.campIdx >= CH.length - 1;
+      const b = passed ? '<div class="banner good"><span class="call">Drill complete</span><span class="sub">' + (last ? "That's the whole camp. Switch to Game Day and run it live." : "Checked off. Read the film room if anything felt shaky, then move on.") + '</span></div>' + (last ? "" : '<div class="actions"><button class="btn gold" type="button" id="btnNext2">Next drill →</button></div>')
+                       : '<div class="banner bad"><span class="call">Not yet</span><span class="sub">Check the failing tests below. The chalk talk and hint are free in camp.</span></div>';
+      $("result").innerHTML = b + GAME.resultHtml(c, res, false);
+      const n = $("btnNext2"); if (n) n.onclick = () => campStep(1);
+      return;
+    }
+    if (kind === "practice" || S.snapped) {
+      const b = passed ? '<div class="banner good"><span class="call">All tests pass</span><span class="sub">' + (kind === "practice" ? "Checked off in your playbook." : "That's the rep. Back to the huddle when you're ready.") + '</span></div>'
+                       : '<div class="banner bad"><span class="call">Not yet</span><span class="sub">Check the failing tests below.</span></div>';
+      $("result").innerHTML = b + (kind !== "practice" ? nextBtn() : "") + GAME.resultHtml(c, res, false);
+      wireNext(); return;
+    }
+    S.snapped = true; S.snaps++; if (passed) S.hits++;
+    const out = resolvePlay(passed, c);
+    renderBoard(); renderLog();
+    renderChallenge();
+    $("result").innerHTML = '<div class="banner ' + out.cls + '"><span class="call">' + esc(out.call) + '</span><span class="sub">' + esc(out.sub) + '</span></div>' + nextBtn() + GAME.resultHtml(c, res, false);
+    if (!passed) { $("film").hidden = false; }
+    wireNext();
+  } finally { busy = false; }
+}
+function nextBtn() { return '<div class="actions"><button class="btn gold" type="button" id="btnNextPlay">' + (S.over ? "See final score" : S.pendingKick ? "Next possession" : "Back to the huddle") + '</button></div>'; }
+function wireNext() { const b = $("btnNextPlay"); if (b) b.onclick = () => { S.phase = S.over ? "final" : S.pendingKick ? "kickoff" : "huddle"; S.pendingKick = false; render(); window.scrollTo({ top: 0, behavior: "smooth" }); }; }
+function campStep(d) { P.campIdx = Math.max(0, Math.min(CH.length - 1, P.campIdx + d)); persist(); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+function endPossession() {
+  S.drive++;
+  Object.assign(S, { yl: 25, down: 1, toGo: 10, timeouts: 3 });
+  if (S.drive > DRIVES_PER_GAME) { S.over = true; if (S.score > P.best) { P.best = S.score; persist(); } }
+  else S.pendingKick = true;
+}
+function resolvePlay(passed, c) {
+  const T = TIERS[S.tier];
+  if (S.kind === "fg") {
+    const dist = 100 - S.yl + 17;
+    if (passed) { S.score += 3; S.fgs++; addLog("+3", "score", dist + "-yd field goal is GOOD. (" + c.title + ")"); endPossession(); return { cls: "score", call: "It's good! +3", sub: "Field goal from " + dist + " yards." }; }
+    addLog("NO", "turnover", dist + "-yd field goal missed. (" + c.title + ")"); endPossession();
+    return { cls: "bad", call: "Wide right", sub: "Missed field goal. Study the film, then rewrite it." };
+  }
+  let gain;
+  if (passed) gain = rand(T.gain[0], T.gain[1]);
+  else if (S.tier === "camp") gain = 0;
+  else if (S.tier === "run") gain = rand(-2, 1);
+  else if (S.tier === "deep" && Math.random() < 0.3) {
+    addLog("INT", "turnover", T.label + " intercepted. (" + c.title + ")"); endPossession();
+    return { cls: "bad", call: "Intercepted", sub: "Possession over. The film room is open below." };
+  } else gain = 0;
+  const newYl = S.yl + gain;
+  const label = T.label + (passed ? "" : S.tier === "run" ? " stuffed" : S.tier === "camp" ? " busted" : " incomplete") + ". (" + c.title + ")";
+  if (newYl >= 100) {
+    S.score += 7; S.tds++;
+    addLog("TD", "score", T.label + " for a " + (100 - S.yl) + "-yd touchdown! (" + c.title + ")");
+    const d = 100 - S.yl; endPossession();
+    return { cls: "score", call: "Touchdown! +7", sub: d + "-yard score. Extra point is good." };
+  }
+  if (newYl <= 0) { S.score -= 2; addLog("SAF", "turnover", "Tackled in the end zone for a safety. (" + c.title + ")"); endPossession(); return { cls: "bad", call: "Safety, -2", sub: "Tackled in your own end zone." }; }
+  addLog((gain > 0 ? "+" : "") + gain, gain > 0 ? "gain" : gain < 0 ? "loss" : "info", label);
+  S.yl = newYl;
+  if (gain >= S.toGo) { S.down = 1; S.toGo = 10; return { cls: "good", call: "+" + gain + " · First down", sub: "Chains move. " + ddText(1, 10, S.yl) + " at " + ballText(S.yl) + "." }; }
+  S.toGo -= gain; S.down++;
+  if (S.down > 4) { addLog("TOD", "turnover", "Turnover on downs at " + ballText(S.yl) + "."); endPossession(); return { cls: "bad", call: "Turnover on downs", sub: (passed ? "Gained " + gain + ", " : "") + "came up short on 4th down." }; }
+  const call = passed ? "+" + gain + " yards" : S.tier === "run" ? (gain < 0 ? "Stuffed, " + gain : "Stuffed, no gain") : S.tier === "camp" ? "Busted play, no gain" : "Incomplete";
+  return { cls: passed ? "good" : "bad", call, sub: ddText(S.down, S.toGo, S.yl) + " coming up." + (passed ? "" : " Check the film room below.") };
+}
+
+/* ---------- final ---------- */
+function renderFinal() {
+  const pctC = S.snaps ? Math.round(S.hits / S.snaps * 100) : 0;
+  $("stage").innerHTML = '<div class="final"><div class="eyebrow">Final · ' + DRIVES_PER_GAME + ' possessions</div><div class="big">' + S.score + '</div><h2>' + (S.score >= P.best && S.score > 0 ? "New personal best" : "Best: " + P.best + " pts") + '</h2>' +
+    '<div class="stats"><div><b>' + S.tds + '</b><span>Touchdowns</span></div><div><b>' + S.fgs + '</b><span>Field goals</span></div><div><b>' + S.hits + '/' + S.snaps + '</b><span>Plays completed (' + pctC + '%)</span></div><div><b>' + S.trivRight + '/' + S.trivTotal + '</b><span>Trivia kickoffs</span></div></div>' +
+    '<p class="coach-tip">Any play you missed is still in your playbook on the right. Practice it until it checks off, then run it back.</p>' +
+    '<div class="actions"><button class="btn gold" type="button" id="btnAgain">Run it back</button></div></div>';
+  $("btnAgain").onclick = newGame;
+}
+
+/* ---------- render + events ---------- */
+function render() {
+  renderBoard(); renderPlaybook();
+  if (inCamp()) { renderChallenge(); return; }
+  renderLog();
+  if (S.phase === "kickoff") renderKickoff();
+  else if (S.phase === "huddle") renderHuddle();
+  else if (S.phase === "final") renderFinal();
+  else renderChallenge();
+}
+function newGame() { S = freshGame(); render(); }
+function setMode(m) { P.mode = m; persist(); render(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.mode) return setMode(t.dataset.mode);
+  if (t.dataset.call) return callPlay(t.dataset.call);
+  if (t.dataset.open) return openFromList(t.dataset.open);
+  if (t.dataset.ans !== undefined) return answerTrivia(t.dataset.ans);
+  switch (t.id) {
+    case "btnNew": newGame(); break;
+    case "btnHuddle": breakHuddle(); break;
+    case "btnFair": S.trivAnswered = "(fair catch)"; S.yl = 25; addLog("FC", "info", "Fair catch at the 25."); render(); break;
+    case "btnEx": runExamples(); break;
+    case "btnSnap": snap(); break;
+    case "btnLeave": leavePractice(); break;
+    case "btnPrev": campStep(-1); break;
+    case "btnNext": campStep(1); break;
+    case "btnFilm": $("film").hidden = !$("film").hidden; break;
+    case "btnTalk": { const tk = $("talk"); tk.hidden = !tk.hidden; t.textContent = tk.hidden ? "Chalk talk" : "Hide chalk talk"; break; }
+    case "btnReset": { const c = BYID[curId()]; $("code").value = GAME.starter(c); delete P.drafts[c.id]; persist(); break; }
+    case "btnHint": {
+      const game = curKind() === "play" || curKind() === "fg";
+      if (game && !S.snapped) { if (S.timeouts <= 0) return; S.timeouts--; addLog("TO", "info", "Timeout called for a hint."); renderBoard(); renderLog(); }
+      S.hintShown = true; $("hintBox").hidden = false; t.disabled = true; t.textContent = "Hint shown"; break;
+    }
+  }
+});
+
+function start(data) {
+  S = (data && data.S) ? data.S : freshGame();
+  buildField();
+  render();
+  if (GAME.ready) GAME.ready.then(() => { $("loading").hidden = true; }, err => { $("loading").textContent = "The " + GAME.langName + " engine didn't load. Reload the page to try again."; });
+  else $("loading").hidden = true;
+}
+try { window.claude?.hot?.snapshot?.(() => ({ S })); } catch (e) {}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+
+</script>
