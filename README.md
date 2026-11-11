@@ -29,7 +29,7 @@ Timeouts buy hints (three per possession). Fourth down offers a field goal (an e
 
 ## Running locally
 
-Open any file in `games/` directly in a browser. The Python and SQL games load their engines from a CDN, so they need an internet connection the first time.
+Play online at https://cameronberry3658.github.io/playbook-gamescb/ or open any file in `games/` directly in a browser. The Python and SQL games load their engines from a CDN, so they need an internet connection the first time.
 
 ## Building from source
 

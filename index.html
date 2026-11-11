@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playbook Coding Games</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600&family=Barlow:wght@400;600&display=swap">
+<style>
+  :root { --bg: #EDF0EA; --surface: #FFFFFF; --ink: #16201A; --muted: #5A665E; --line: #D2D9D0; --gold: #A87A06; --turf: #2E6A3C; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0C110E; --surface: #141B17; --ink: #E4EAE3; --muted: #94A198; --line: #26312A; --gold: #E3B53E; --turf: #23542F; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Barlow", system-ui, sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px max(16px, env(safe-area-inset-left, 0px)) 48px; }
+  h1 { font-family: "Teko", "Arial Narrow", sans-serif; font-weight: 600; font-size: 64px; line-height: 0.85; margin: 0; }
+  h1 span { color: var(--gold); }
+  p.lead { color: var(--muted); max-width: 60ch; margin: 12px 0 28px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  a.card { display: flex; flex-direction: column; gap: 6px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+  a.card:hover { border-color: var(--gold); transform: translateY(-2px); }
+  a.card b { font-family: "Teko", "Arial Narrow", sans-serif; font-size: 34px; font-weight: 500; line-height: 0.9; }
+  a.card b span { color: var(--gold); }
+  a.card small { color: var(--muted); font-size: 14px; }
+  .field { height: 10px; border-radius: 5px; margin: 32px 0 12px; background: repeating-linear-gradient(90deg, var(--turf) 0 10%, transparent 10% 10.4%); }
+  footer { color: var(--muted); font-size: 13px; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Playbook<span>.</span></h1>
+  <p class="lead">Football-style coding practice. Start in Training Camp with the fundamentals, then take it to Game Day: call a play, write the code, move the chains.</p>
+  <div class="grid">
+    <a class="card" href="games/playbook-py.html"><b>Playbook<span>.py</span></b><small>Python 3 · 33 drills · runs in the browser</small></a>
+    <a class="card" href="games/playbook-sql.html"><b>Playbook<span>.sql</span></b><small>SQLite · 33 drills on an NFL database</small></a>
+    <a class="card" href="games/playbook-js.html"><b>Playbook<span>.js</span></b><small>JavaScript · 26 drills</small></a>
+  </div>
+  <div class="field"></div>
+  <footer>Built by Cam Berry · <a href="https://github.com/cameronberry3658/playbook-gamescb">Source on GitHub</a></footer>
+</div>
+</body>
+</html>
